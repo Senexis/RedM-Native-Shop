@@ -14,12 +14,12 @@ client_scripts {
     "client/dataview.lua",
     "client/itemdatabase.lua",
     "client/ticker.lua",
+    "client/toast.lua",
 
     "client/events.lua",
     "client/navigation.lua",
     "client/ui.lua",
     "client/shop.lua",
 
-    "client/shops/*.lua",
-    "client/debug.lua",
+    "client/shops/*.lua"
 }

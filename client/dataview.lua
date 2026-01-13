@@ -182,3 +182,9 @@ for label, datatype in pairs(DataView.FixedTypes) do
         return self
     end
 end
+
+function BigInt(text)
+    local string1 = DataView.ArrayBuffer(16)
+    string1:SetInt64(0, text)
+    return string1:GetInt64(0)
+end
