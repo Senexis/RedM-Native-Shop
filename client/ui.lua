@@ -7,7 +7,6 @@ local validSceneTypes = {
     "ITEM_GRID",
     "ITEM_LIST",
     "ITEM_LIST_COLOUR_PALETTE",
-    "ITEM_LIST_COLOUR_PALETTE_COMBO",
     "ITEM_LIST_DESCRIPTION",
     "ITEM_LIST_HORSE_STATS",
     "ITEM_LIST_RECIPES",
@@ -107,7 +106,6 @@ function ShopUI.Initialize()
     ShopUI.bindings.dscItemListEntries = DatabindingAddDataContainer(main, "ItemListEntries")
 
     -- Palettes
-    DatabindingAddDataBool(main, "ItemPalettePriceVisible", false)
     DatabindingAddDataBool(main, "uiPaletteVisible", false)
     DatabindingAddDataHash(main, "ItemPaletteItemName", -1)
     DatabindingAddDataInt(main, "currentPaletteIndex", 0)
@@ -588,7 +586,6 @@ function ShopUI.Events.HandleItemSceneFocus(item)
         ITEM_GRID = ShopUI.Events.HandleItemGridFocus,
         ITEM_LIST = ShopUI.Events.HandleItemListFocus,
         ITEM_LIST_COLOUR_PALETTE = ShopUI.Events.HandleItemListColourPaletteFocus,
-        ITEM_LIST_COLOUR_PALETTE_COMBO = ShopUI.Events.HandleItemListColourPaletteFocus,
         ITEM_LIST_DESCRIPTION = ShopUI.Events.HandleItemListDescriptionFocus,
         ITEM_LIST_HORSE_STATS = ShopUI.Events.HandleItemListHorseStatsFocus,
         ITEM_LIST_RECIPES = ShopUI.Events.HandleItemListRecipesFocus,
@@ -935,7 +932,10 @@ function ShopUI.Events.HandleItemSellListHorseStatsFocus(item)
 
     ShopUI.Scene.SetSceneFooterVisible(showSceneFooter)
     ShopUI.Scene.SetStatsVisible(showSceneStats)
-    ShopUI.Scene.SetPriceDetailsFromItem(item)
+
+    if ShopUI.Scene.SetPriceDetailsFromItem(item) and showSceneStats then
+        print("[NativeShop] Warning: While supported, enabling pricing on sell list horse stats may cause graphical issues.")
+    end
 end
 
 function ShopUI.Events.HandleMenuListFocus(item)
@@ -1184,7 +1184,6 @@ function ShopUI.Builder.BuildScene(scene, menu)
         ITEM_GRID = ShopUI.Builder.BuildItemGridScene,
         ITEM_LIST = ShopUI.Builder.BuildItemListScene,
         ITEM_LIST_COLOUR_PALETTE = ShopUI.Builder.BuildItemListColourPaletteScene,
-        ITEM_LIST_COLOUR_PALETTE_COMBO = ShopUI.Builder.BuildItemListColourPaletteScene,
         ITEM_LIST_DESCRIPTION = ShopUI.Builder.BuildItemListDescriptionScene,
         ITEM_LIST_HORSE_STATS = ShopUI.Builder.BuildItemListHorseStatsScene,
         ITEM_LIST_RECIPES = ShopUI.Builder.BuildItemListRecipesScene,
@@ -1269,15 +1268,6 @@ end
 
 function ShopUI.Builder.BuildItemListColourPaletteScene(menu)
     ShopUI.CreatePaletteItemListBinding()
-    DatabindingAddDataBool(ShopUI.bindings.dscMain, "ItemPalettePriceVisible", false)
-    ShopUI.Events.HandleItemListColourPaletteFocus(menu)
-
-    return true
-end
-
-function ShopUI.Builder.BuildItemListColourPaletteComboScene(menu)
-    ShopUI.CreatePaletteItemListBinding()
-    DatabindingAddDataBool(ShopUI.bindings.dscMain, "ItemPalettePriceVisible", true)
     ShopUI.Events.HandleItemListColourPaletteFocus(menu)
 
     return true
@@ -1900,7 +1890,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
         ShopUI.Prompts.SetPromptEnabled(5, not isItemDisabled and enabled)
         ShopUI.Prompts.SetPromptVisible(5, visible)
         ShopUI.Prompts.SetPromptHeld(5, false)
-    elseif menu.Scene == "ITEM_LIST_COLOUR_PALETTE" or menu.Scene == "ITEM_LIST_COLOUR_PALETTE_COMBO" then
+    elseif menu.Scene == "ITEM_LIST_COLOUR_PALETTE" then
         local label = adjustData.Label or GetStringFromHashKey("IB_ADJUST")
         local enabled = palette and palette.Items and #palette.Items > 0
 
@@ -2271,13 +2261,8 @@ function ShopUI.Scene.SetItemInfo2FromItem(item)
     return false
 end
 
-function ShopUI.Scene.SetPriceDetails(priceType, visible, price, tokens, salePrice, gold, affordable, leftText, rightText, locked, rank)
-    if priceType == nil then priceType = "DEFAULT" end
+function ShopUI.Scene.SetPriceDetails(visible, price, tokens, salePrice, gold, affordable, leftText, rightText, locked, rank)
     local datastore = ShopUI.bindings.dscPriceDetails
-
-    if priceType == "BUSINESS" then
-        datastore = ShopUI.bindings.dscSceneBusinessPrice
-    end
 
     DatabindingAddDataBool(datastore, "visible", visible == true)
 
@@ -2314,15 +2299,12 @@ function ShopUI.Scene.SetPriceDetails(priceType, visible, price, tokens, salePri
     end
 end
 
-function ShopUI.Scene.SetPriceDetailsFromItem(item, priceType)
-    if not priceType then priceType = "DEFAULT" end
-
+function ShopUI.Scene.SetPriceDetailsFromItem(item)
     local itemData = item.Data or {}
     local data = itemData.Pricing
 
     if data and type(data) == "table" then
         ShopUI.Scene.SetPriceDetails(
-            priceType,
             true,
             data.Price or 0,
             data.Tokens or 0,
@@ -2803,29 +2785,25 @@ function ShopUI.Scene.SetSliderInfoFromItem(item)
     return false
 end
 
-function ShopUI.Scene.SetBusinessInfo(visible, description, moonshine, trader)
-    if type(moonshine) ~= "table" then moonshine = {} end
-    if type(trader) ~= "table" then trader = {} end
+function ShopUI.Scene.SetBusinessInfo(visible, description, materialsIconDict, materialsIcon, productionIconDict, productionIcon, goodsIconDict, goodsIcon)
+    local businessDatastore = ShopUI.bindings.dscSceneBusiness
 
-    local datastore = ShopUI.bindings.dscSceneBusiness
+    DatabindingAddDataBool(businessDatastore, "FooterVisible", visible == true)
+    DatabindingAddDataHash(businessDatastore, "MaterialsTextureDictionary", materialsIconDict or 0)
+    DatabindingAddDataHash(businessDatastore, "MaterialsTexture", materialsIcon or 0)
+    DatabindingAddDataHash(businessDatastore, "ProductionTextureDictionary", productionIconDict or 0)
+    DatabindingAddDataHash(businessDatastore, "ProductionTexture", productionIcon or 0)
+    DatabindingAddDataHash(businessDatastore, "GoodsTextureDictionary", goodsIconDict or 0)
+    DatabindingAddDataHash(businessDatastore, "GoodsTexture", goodsIcon or 0)
+    DatabindingAddDataString(businessDatastore, "Description", description or "")
 
-    DatabindingAddDataBool(datastore, "FooterVisible", visible == true)
-    DatabindingAddDataString(datastore, "Description", description or "")
-
-    -- Moonshine
-    DatabindingAddDataHash(datastore, "MaterialsTexture", moonshine.MaterialsTexture or 0)
-    DatabindingAddDataHash(datastore, "MaterialsTextureDictionary", moonshine.MaterialsTextureDictionary or 0)
-    DatabindingAddDataHash(datastore, "ProductionTexture", moonshine.ProductionTexture or 0)
-    DatabindingAddDataHash(datastore, "ProductionTextureDictionary", moonshine.ProductionTextureDictionary or 0)
-    DatabindingAddDataHash(datastore, "GoodsTexture", moonshine.GoodsTexture or 0)
-    DatabindingAddDataHash(datastore, "GoodsTextureDictionary", moonshine.GoodsTextureDictionary or 0)
-
-    -- Trader
-    DatabindingAddDataBool(datastore, "ShowDeliveryStats", trader.Delivery == true)
-    DatabindingAddDataString(datastore, "TotalGoods", trader.TotalGoods or "")
-    DatabindingAddDataString(datastore, "WagonSize", trader.WagonSize or "")
-    DatabindingAddDataString(datastore, "WagonCapacity", trader.WagonCapacity or "")
-    DatabindingAddDataString(datastore, "DeliveryAmount", trader.DeliveryAmount or "")
+    -- No matter what I try, I cannot get these to show up when they should
+    -- I'm pretty sure these were cut from the generic_shop UI entirely and moved to trader UI
+    DatabindingAddDataBool(businessDatastore, "ShowDeliveryStats", false)
+    DatabindingAddDataString(businessDatastore, "TotalGoods", "")
+    DatabindingAddDataString(businessDatastore, "WagonSize", "")
+    DatabindingAddDataString(businessDatastore, "WagonCapacity", "")
+    DatabindingAddDataString(businessDatastore, "DeliveryAmount", "")
 end
 
 function ShopUI.Scene.SetBusinessInfoFromItem(item)
@@ -2838,14 +2816,16 @@ function ShopUI.Scene.SetBusinessInfoFromItem(item)
         ShopUI.Scene.SetBusinessInfo(
             data.Visible == true,
             descriptionKey,
-            data.Moonshine or {},
-            data.Trader or {}
+            data.MaterialsIconDictionary or "",
+            data.MaterialsIcon or "",
+            data.ProductionIconDictionary or "",
+            data.ProductionIcon or "",
+            data.GoodsIconDictionary or "",
+            data.GoodsIcon or ""
         )
 
-        ShopUI.Scene.SetPriceDetailsFromItem(
-            item,
-            "BUSINESS"
-        )
+        -- Note: Price seems to be cut from this menu similar to delivery stats
+        -- It seems they were moved to the trader UI partially and never cleaned from this menu
 
         return true
     end
@@ -2963,11 +2943,8 @@ function ShopUI.Scene.ClearItemInfo2()
     )
 end
 
-function ShopUI.Scene.ClearPriceDetails(priceType)
-    if not priceType then priceType = "DEFAULT" end
-
+function ShopUI.Scene.ClearPriceDetails()
     ShopUI.Scene.SetPriceDetails(
-        priceType, -- priceType
         false,     -- visible
         0,         -- price
         0,         -- tokens
@@ -2985,7 +2962,7 @@ function ShopUI.Scene.ClearHorseStats()
     ShopUI.Scene.SetStatsVisible(false)
     ShopUI.Scene.SetHorseStats(
         true, -- primary
-        { -- speed
+        {     -- speed
             Value = 0,
             MinValue = 0,
             MaxValue = 0,
@@ -3100,24 +3077,13 @@ function ShopUI.Scene.ClearBusinessInfo()
     ShopUI.Scene.SetBusinessInfo(
         false, -- visible
         "",    -- description
-        {      -- moonshine
-            MaterialsTexture = 0,
-            MaterialsTextureDictionary = 0,
-            ProductionTexture = 0,
-            ProductionTextureDictionary = 0,
-            GoodsTexture = 0,
-            GoodsTextureDictionary = 0,
-        },
-        { -- trader
-            Delivery = false,
-            TotalGoods = "",
-            WagonSize = "",
-            WagonCapacity = "",
-            DeliveryAmount = "",
-        }
+        0,     -- materialsIconDict
+        0,     -- materialsIcon
+        0,     -- productionIconDict
+        0,     -- productionIcon
+        0,     -- goodsIconDict
+        0      -- goodsIcon
     )
-
-    ShopUI.Scene.ClearPriceDetails("BUSINESS")
 end
 
 function ShopUI.Scene.ClearPalette()

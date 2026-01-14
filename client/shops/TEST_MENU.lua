@@ -1,10 +1,23 @@
 local function getItems(id)
+    local pricing = {
+        Price = 1000,
+        Tokens = 1,
+        SalePrice = 990,
+        UseGoldPrice = false,
+        Affordable = true,
+        LeftText = "Test Left",
+        RightText = "Test Right",
+        Locked = false,
+        Rank = 25
+    }
+
     return {
         {
             Id = id .. "_SET_ITEM_DESCRIPTION",
             Label = "Item description",
             Data = {
                 ItemDescription = "This is a test item description for SetItemDescription.",
+                Pricing = pricing
             }
         },
         {
@@ -18,7 +31,8 @@ local function getItems(id)
                     IconVisible = true,
                     IconTextureDictionary = "MENU_TEXTURES",
                     IconTexture = "MENU_ICON_TICK",
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -30,7 +44,8 @@ local function getItems(id)
                     Enabled = true,
                     Opacity = 1,
                     Warmth = 4
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -42,7 +57,8 @@ local function getItems(id)
                     Enabled = true,
                     Opacity = 1,
                     Effectiveness = 2
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -56,24 +72,8 @@ local function getItems(id)
                     IconVisible = true,
                     IconTextureDictionary = "MENU_TEXTURES",
                     IconTexture = "MENU_ICON_TICK",
-                }
-            }
-        },
-        {
-            Id = id .. "_SET_PRICE_DETAILS",
-            Label = "Price details",
-            Data = {
-                Pricing = {
-                    Price = 1000,
-                    Tokens = 1,
-                    SalePrice = 990,
-                    UseGoldPrice = false,
-                    Affordable = true,
-                    LeftText = "Test Left",
-                    RightText = "Test Right",
-                    Locked = false,
-                    Rank = 25
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -109,7 +109,8 @@ local function getItems(id)
                     BreedText = "Test Breed",
                     CoatText = "Test Coat",
                     GenderText = "Test Gender",
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -122,7 +123,8 @@ local function getItems(id)
                     Acceleration = "Test Acceleration",
                     Steering = "Test Steering",
                     Description = "Test Description",
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -135,7 +137,8 @@ local function getItems(id)
                     Accuracy = { Value = 50, Diff = 75, New = 25 },
                     FireRate = { Value = 50, Diff = 75, New = 25 },
                     Reload = { Value = 50, Diff = 75, New = 25 },
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -153,7 +156,8 @@ local function getItems(id)
                     StaminaHorse = { Value = 4, Duration = 0 },
                     HealthCoreHorse = { Value = 4, Duration = 0 },
                     StaminaCoreHorse = { Value = 4, Duration = 0 },
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -167,7 +171,8 @@ local function getItems(id)
                     MaxValue = 6,
                     TotalTanks = 10,
                     ActiveTanks = 5,
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -177,33 +182,14 @@ local function getItems(id)
                 BusinessInfo = {
                     Visible = true,
                     Description = "This is a test business description.",
-                    Moonshine = {
-                        MaterialsTextureDictionary = "MENU_TEXTURES",
-                        MaterialsTexture = "MENU_ICON_TICK",
-                        ProductionTextureDictionary = "MENU_TEXTURES",
-                        ProductionTexture = "MENU_ICON_TICK",
-                        GoodsTextureDictionary = "MENU_TEXTURES",
-                        GoodsTexture = "MENU_ICON_TICK",
-                    },
-                    Trader = {
-                        Delivery = false,
-                        TotalGoods = "Test TotalGoods",
-                        WagonSize = "Test WagonSize",
-                        WagonCapacity = "Test WagonCapacity",
-                        DeliveryAmount = "Test DeliveryAmount",
-                    },
+                    MaterialsIconDictionary = "MENU_TEXTURES",
+                    MaterialsIcon = "MENU_ICON_TICK",
+                    ProductionIconDictionary = "MENU_TEXTURES",
+                    ProductionIcon = "MENU_ICON_TICK",
+                    GoodsIconDictionary = "MENU_TEXTURES",
+                    GoodsIcon = "MENU_ICON_TICK",
                 },
-                Pricing = {
-                    Price = 1000,
-                    Tokens = 1,
-                    SalePrice = 990,
-                    UseGoldPrice = false,
-                    Affordable = true,
-                    LeftText = "Test Left",
-                    RightText = "Test Right",
-                    Locked = false,
-                    Rank = 25
-                }
+                Pricing = pricing
             }
         },
         {
@@ -218,7 +204,8 @@ local function getItems(id)
                         { Enabled = true,  Name = "Test Item 2", Count = 2, TextureDictionary = "MENU_TEXTURES", Texture = "MENU_ICON_TICK" },
                         { Enabled = false, Name = "Test Item 3", Count = 3, TextureDictionary = "MENU_TEXTURES", Texture = "MENU_ICON_TICK" },
                     }
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -273,7 +260,8 @@ local function getItems(id)
                             EndIconTexture = "MENU_ICON_TICK",
                         }
                     }
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -350,7 +338,8 @@ local function getItems(id)
                             EndIconTexture = "MENU_ICON_TICK",
                         }
                     }
-                }
+                },
+                Pricing = pricing
             }
         },
         {
@@ -363,11 +352,12 @@ local function getItems(id)
                     Value = 1,
                     Items = {
                         { Visible = true, Text = "Palette item 1", TextureDictionary = "MENU_TEXTURES", Texture = "MENU_ICON_TICK", New = false, Owned = true,  Equipped = true,  Locked = false },
-                        { Visible = true, Text = "Palette item 2", TextureDictionary = "MENU_TEXTURES", Texture = "CLUB", New = true,  Owned = true,  Equipped = false, Locked = false },
-                        { Visible = true, Text = "Palette item 3", TextureDictionary = "MENU_TEXTURES", Texture = "DIAMOND", New = false, Owned = false, Equipped = false, Locked = true },
-                        { Visible = true, Text = "Palette item 4", TextureDictionary = "MENU_TEXTURES", Texture = "CROSS", New = false, Owned = false, Equipped = false, Locked = false },
+                        { Visible = true, Text = "Palette item 2", TextureDictionary = "MENU_TEXTURES", Texture = "CLUB",           New = true,  Owned = true,  Equipped = false, Locked = false },
+                        { Visible = true, Text = "Palette item 3", TextureDictionary = "MENU_TEXTURES", Texture = "DIAMOND",        New = false, Owned = false, Equipped = false, Locked = true },
+                        { Visible = true, Text = "Palette item 4", TextureDictionary = "MENU_TEXTURES", Texture = "CROSS",          New = false, Owned = false, Equipped = false, Locked = false },
                     }
-                }
+                },
+                Pricing = pricing
             }
         }
     }
@@ -410,12 +400,6 @@ local function getMenu()
             Scene = "ITEM_LIST_COLOUR_PALETTE",
             Label = "Item list colour palette",
             Items = getItems("ITEM_LIST_COLOUR_PALETTE"),
-        },
-        {
-            Id = "ITEM_LIST_COLOUR_PALETTE_COMBO_MENU",
-            Scene = "ITEM_LIST_COLOUR_PALETTE_COMBO",
-            Label = "Item list colour palette combo",
-            Items = getItems("ITEM_LIST_COLOUR_PALETTE_COMBO"),
         },
         {
             Id = "ITEM_LIST_DESCRIPTION_MENU",
