@@ -502,6 +502,15 @@ function ShopUI.Events.HandleItemSelect()
             Item = item,
         })
     end
+
+    TriggerEvent("native_shop:item_action", {
+        ID = item.Id,
+        Type = type,
+        Index = index,
+        Item = item,
+        Action = "select",
+        ActionParameter = nil,
+    })
 end
 
 function ShopUI.Events.HandleItemAction(action)
@@ -524,6 +533,7 @@ function ShopUI.Events.HandleItemAction(action)
         Index = index,
         Item = item,
         Action = actionToEvent[action] or "unknown",
+        ActionParameter = nil,
     })
 end
 
@@ -1051,11 +1061,11 @@ function ShopUI.Events.HandleStepperChange()
 
     local main = ShopUI.bindings.dscMain
     local scene = ShopUI.bindings.dscScene
+    local change = ShopEvents.state.adjustableIndex
 
     if DatabindingReadDataBoolFromParent(scene, "SliderVisible") == 1 then
         local index = DatabindingReadDataIntFromParent(scene, "SliderCurrent")
         local max = DatabindingReadDataIntFromParent(scene, "SliderInputMax")
-        local change = ShopEvents.state.adjustableIndex
 
         -- Calculate the new index
         index = (index + change)
@@ -1093,7 +1103,6 @@ function ShopUI.Events.HandleStepperChange()
     elseif DatabindingReadDataBoolFromParent(main, "uiPaletteVisible") == 1 then
         local index = DatabindingReadDataIntFromParent(main, "currentPaletteIndex")
         local max = DatabindingReadDataIntFromParent(main, "paletteItemCount")
-        local change = ShopEvents.state.adjustableIndex
 
         -- Calculate the new index
         index = (index + change)
@@ -1132,7 +1141,6 @@ function ShopUI.Events.HandleStepperChange()
     elseif DatabindingReadDataBoolFromParent(datastore, "uiItemStepperVisible") == 1 then
         local index = DatabindingReadDataIntFromParent(datastore, "uiItemStepperValue")
         local max = DatabindingReadDataIntFromParent(datastore, "uiItemStepperMax")
-        local change = ShopEvents.state.adjustableIndex
 
         -- Calculate the new index
         index = (index + change)
@@ -1163,6 +1171,15 @@ function ShopUI.Events.HandleStepperChange()
             Type = "STEPPER",
         })
     end
+
+    TriggerEvent("native_shop:item_action", {
+        ID = id,
+        Type = item.Type,
+        Index = focusIndex,
+        Item = item,
+        Action = "adjust",
+        ActionParameter = change,
+    })
 
     return true
 end
