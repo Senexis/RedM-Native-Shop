@@ -787,6 +787,20 @@ local function getTestMenus()
     }
 end
 
+local function getLongMenu()
+    local items = {}
+    for i = 1, 10000 do
+        table.insert(items, {
+            Id = "LONG_MENU_ITEM_" .. i,
+            Type = "TEXT",
+            Label = "Menu Item " .. i,
+            Footer = "This is menu item number " .. i,
+        })
+    end
+
+    return items
+end
+
 local data = {
     Id = "TEST_MENU",
     Title = "NATIVE SHOP",
@@ -804,6 +818,14 @@ local data = {
             Items = getTestMenus(),
             Data = {
                 ItemDescription = "A preview of the different menus. Not all options are supported in every menu. Pricing is included in all items, but can be omitted if desired.",
+            }
+        },
+        {
+            Id = "LONG_MENU",
+            Label = "Long Menu",
+            Items = getLongMenu(),
+            Data = {
+                ItemDescription = "A menu with a large number of items to test scrolling behavior.",
             }
         },
         {
@@ -926,7 +948,7 @@ local function getDynamicFilterMenu(filter)
                 Label = name,
                 Footer = string.format("%s is %.1f meters away", name, distance),
                 Prompts = {
-                    Select = { Visible = true, Label = "Fast Travel" }
+                    Select = { Visible = true, Label = "Travel" }
                 },
                 Data = {
                     RightText = string.format("%.1fm", distance),
