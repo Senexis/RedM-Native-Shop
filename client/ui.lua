@@ -1406,7 +1406,7 @@ function ShopUI.Builder.AddItemsToScene(start, range, total)
         end
 
         -- Check if current item is within our desired range (with wraparound)
-        if ShopUI.Builder.IsIndexInSceneRange(index, start, range, total) then
+        if ShopUI.Builder.IsIndexInRange(index, start, range, total) then
             -- Try to add the item to the current slot
             if ShopUI.Builder.TryAddItemToSlot(index) then
                 added = added + 1
@@ -1452,7 +1452,7 @@ function ShopUI.Builder.TryAddItemToSlot(index)
     return false
 end
 
-function ShopUI.Builder.IsIndexInSceneRange(index, start, range, total)
+function ShopUI.Builder.IsIndexInRange(index, start, range, total)
     local adjustedIndex = index
 
     -- Handle wraparound case: if range extends past end of list
@@ -1498,10 +1498,25 @@ function ShopUI.Builder.FillItem(entry, item)
     local callback = callbacks[item.Type]
     local result = false
 
-    -- Use the specific item builder if it exists, otherwise use the generic text item builder
-    if callback then
+    local menu = ShopNavigator:getCurrentMenu()
+    local scene = menu and menu.Scene or nil
+
+    if scene == "ITEM_GRID" then
+        if item.Type and item.Type ~= "SWATCH" then
+            print("[NativeShop] Warning: ITEM_GRID scene only supports SWATCH item types.")
+        end
+
+        -- Build the grid-exclusive swatch item, menu supports nothing else
+        result = ShopUI.Builder.FillSwatchItem(entry, item)
+    elseif callback then
+        -- Otherwise use the specific item builder if it exists
         result = callback(entry, item)
     else
+        if item.Type == "SWATCH" then
+            print("[NativeShop] Warning: SWATCH item type is only supported in ITEM_GRID scene.")
+        end
+
+        -- Otherwise use the generic text item builder
         result = ShopUI.Builder.FillTextItem(entry, item)
     end
 
@@ -1751,6 +1766,33 @@ function ShopUI.Builder.FillTextItem(entry, item)
     DatabindingAddDataBool(entry, "rightLabelVisible", data.RightLabelVisible or data.RightText ~= nil)
     DatabindingAddDataBool(entry, "uiItemNew", data.IsNew or false)
     DatabindingAddDataBool(entry, "uiItemSale", data.IsOnSale or false)
+
+    return entry
+end
+
+function ShopUI.Builder.FillSwatchItem(entry, item)
+    local data = item.Data or {}
+
+    DatabindingAddDataString(entry, "uiItemID", item.Id)
+    DatabindingAddDataString(entry, "uiItemType", "SWATCH")
+    DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_SWATCH_LIST_ITEM")
+
+    DatabindingAddDataBool(entry, "visible", not ShopUI.IsItemDisabled(item))
+    DatabindingAddDataString(entry, "textureDictionary", data.AddIconTexture or "")
+    DatabindingAddDataString(entry, "texture", data.AddIconTexture or "")
+    DatabindingAddDataBool(entry, "leftImageVisible", data.LeftImageVisible or data.LeftImageTexture ~= nil)
+    DatabindingAddDataString(entry, "leftImageDictionary", data.LeftImageDictionary or "")
+    DatabindingAddDataString(entry, "leftImageTexture", data.LeftImageTexture or "")
+    DatabindingAddDataBool(entry, "rightImageVisible", data.RightImageVisible or data.RightImageTexture ~= nil)
+    DatabindingAddDataString(entry, "rightImageDictionary", data.RightImageDictionary or "")
+    DatabindingAddDataString(entry, "rightImageTexture", data.RightImageTexture or "")
+
+    DatabindingAddDataBool(entry, "rankLocked", data.RankLocked or false)
+    DatabindingAddDataHash(entry, "rankTexture", data.RankTexture or 0)
+    DatabindingAddDataBool(entry, "locked", data.Locked or false)
+    DatabindingAddDataBool(entry, "equipped", data.Equipped or false)
+    DatabindingAddDataBool(entry, "onHorse", data.OnHorse or false)
+    DatabindingAddDataBool(entry, "uiItemNew", data.IsNew or false)
 
     return entry
 end
@@ -2948,16 +2990,16 @@ end
 
 function ShopUI.Scene.ClearPriceDetails()
     ShopUI.Scene.SetPriceDetails(
-        false,     -- visible
-        0,         -- price
-        0,         -- tokens
-        0,         -- salePrice
-        false,     -- gold
-        false,     -- affordable
-        "",        -- leftText
-        "",        -- rightText
-        false,     -- locked
-        0          -- rank
+        false, -- visible
+        0,     -- price
+        0,     -- tokens
+        0,     -- salePrice
+        false, -- gold
+        false, -- affordable
+        "",    -- leftText
+        "",    -- rightText
+        false, -- locked
+        0      -- rank
     )
 end
 
