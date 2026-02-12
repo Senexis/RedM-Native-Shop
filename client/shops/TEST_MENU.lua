@@ -1110,6 +1110,15 @@ local data = {
                             }
                         },
                         {
+                            Id = "ACTION_HIDE_MENU",
+                            Type = "TEXT",
+                            Label = "Hide Menu",
+                            Action = "HIDE",
+                            Data = {
+                                ItemDescription = "Showcases an example of an item that hides the menu when selected. The next time this menu is opened, it will appear in the same state as before assuming no other menu has been opened in the meantime.",
+                            }
+                        },
+                        {
                             Id = "ACTION_CLOSE_MENU",
                             Type = "TEXT",
                             Label = "Close Menu",

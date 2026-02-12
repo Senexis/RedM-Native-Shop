@@ -455,19 +455,22 @@ function ShopNavigator:navigateInto(index)
         if item.Action == "CLOSE" then
             TriggerEvent("shop:close")
             return nil
+        elseif item.Action == "HIDE" then
+            TriggerEvent("shop:hide")
+            return nil
         elseif item.Action == "BACK" then
             return self:navigateBack() or 1
         elseif item.Action == "ROOT" then
             local rootMenu = self:getRootMenu()
 
-            if rootMenu then
-                local result = self:jumpToMenu(rootMenu.Id)
-                TriggerEvent("native_shop:menu_navigated", { RootId = self.currentRootId, Menu = self:getCurrentMenu(), Index = result, Direction = "forward" })
-                return result
-            else
-                print("[NativeShop] Current root menu not found when handling ROOT action.")
-                return nil
+            if not rootMenu then
+                self.onError("No root menu found for current context. Cannot navigate to ROOT.")
+                return false
             end
+
+            local result = self:jumpToMenu(rootMenu.Id)
+            TriggerEvent("native_shop:menu_navigated", { RootId = self.currentRootId, Menu = self:getCurrentMenu(), Index = result, Direction = "forward" })
+            return result
         elseif type(item.Action) == "function" then
             local ok, result = pcall(item.Action, item)
 

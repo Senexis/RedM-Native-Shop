@@ -291,20 +291,43 @@ function ShopUI.PrevScene()
 end
 
 function ShopUI.Open(id)
-    local focusIndex = ShopNavigator:jumpToMenu(id)
-    if not focusIndex then return end
-
     ShopData.state.shuttingDown = false
-    TriggerEvent("native_shop:opening", id)
+
+    if ShopData.state.hiddenMenu == id then
+        ShopData.state.hiddenMenu = nil
+
+        TriggerEvent("native_shop:showing", id)
+    else
+        local focusIndex = ShopNavigator:jumpToMenu(id)
+        if not focusIndex then return end
+
+        TriggerEvent("native_shop:opening", id)
+    end
 
     LaunchUiappWithEntry("shop_menu", "generic_shop")
 end
 
+function ShopUI.Hide()
+    ShopData.state.hiddenMenu = ShopNavigator:getRootMenuId()
+    ShopData.state.entryFocusIndex = ShopEvents.state.focusedIndex + 1
+    TriggerEvent("native_shop:hiding", ShopNavigator.currentMenuId)
+
+    -- Clean up actively running tasks
+    ShopUI.OnShutdown()
+end
+
 function ShopUI.Exit()
+    ShopData.state.hiddenMenu = nil
+    ShopData.state.entryFocusIndex = 1
+    TriggerEvent("native_shop:closing", ShopNavigator.currentMenuId)
+
+    -- Clean up actively running tasks
+    ShopUI.OnShutdown()
+end
+
+function ShopUI.OnShutdown()
     local rootMenu = ShopNavigator:getRootMenu()
     if not rootMenu then return end
-
-    TriggerEvent("native_shop:closing", ShopNavigator.currentMenuId)
 
     -- Stop running maintain tasks
     ShopData.state.shuttingDown = true
@@ -330,8 +353,10 @@ function ShopUI.Exit()
         end
     end
 
-    -- Clear the navigator state
-    ShopNavigator:close()
+    -- Get rid of menu state only if we are not hiding the menu
+    if not ShopData.state.hiddenMenu then
+        ShopNavigator:close()
+    end
 
     -- Close the UI app
     return CloseUiapp("shop_menu")

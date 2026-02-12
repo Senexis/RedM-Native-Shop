@@ -2,6 +2,7 @@ ShopData = {}
 
 ShopData.state = {
     shuttingDown = false,
+    hiddenMenu = nil,
     orbitCameraData = nil,
     hasUiInitialized = false,
     hasEnteredFirstScene = false,
@@ -212,6 +213,10 @@ end)
 
 AddEventHandler("shop:close", function()
     ShopUI.Exit()
+end)
+
+AddEventHandler("shop:hide", function()
+    ShopUI.Hide()
 end)
 
 AddEventHandler("shop:disable_item", function(item)
