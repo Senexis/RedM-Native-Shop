@@ -215,12 +215,11 @@ Citizen.CreateThread(function()
     local uiEventChannel = joaat("generic_shop_ui_events")
 
     while true do
-        Citizen.Wait(0)
-
         -- Check condition for processing events
         local shouldSkipProcessing = ShopEvents.GetShopEventFlag(ShopEvents.FLAG_STATE_CHANGED) or (ShopEvents.GetShopEventFlag(ShopEvents.FLAG_NEXT_PAGE) and ShopEvents.GetShopEventFlag(ShopEvents.FLAG_FILTER_CHANGED))
 
-        if not shouldSkipProcessing and EventsUiIsPending(uiEventChannel) then
+        -- Handle all pending UI events in a loop, ensuring we process all events that occurred since the last check
+        while not shouldSkipProcessing and EventsUiIsPending(uiEventChannel) do
             local msg = DataView.ArrayBuffer(8 * 4)
             msg:SetInt32(0, 0)
             msg:SetInt32(8, 0)
@@ -342,6 +341,8 @@ Citizen.CreateThread(function()
 
             EventsUiPopMessage(uiEventChannel)
         end
+
+        Citizen.Wait(0)
     end
 end)
 

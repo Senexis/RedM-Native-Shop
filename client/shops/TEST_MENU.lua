@@ -1452,13 +1452,13 @@ local data = {
                     }
                 },
                 {
-                    Id = "LONG_MENU",
+                    Id = "DEMO_LONG_MENU",
                     Scene = "MENU_LIST",
                     Label = "Long Menu",
                     Items = getLongMenu(),
                     Footer = "~e~Caution: This may cause a slight stutter to occur",
                     Data = {
-                        ItemDescription = "A menu with a large number of items to test scrolling behavior. Scrolling too fast may cause some items to not render properly.",
+                        ItemDescription = "Showcases a menu with a large number of items to test scrolling behavior.",
                     }
                 }
             },
