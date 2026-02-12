@@ -1131,16 +1131,6 @@ local data = {
                     Data = {
                         ItemDescription = "Showcases examples of common menu actions such as closing the menu, going back a page, or linking to another menu.",
                     }
-                },
-                {
-                    Id = "LONG_MENU",
-                    Scene = "MENU_LIST",
-                    Label = "Long Menu",
-                    Items = getLongMenu(),
-                    Footer = "~e~Caution: This may cause a slight stutter to occur",
-                    Data = {
-                        ItemDescription = "A menu with a large number of items to test scrolling behavior.",
-                    }
                 }
             },
             Data = {
@@ -1461,6 +1451,16 @@ local data = {
                         DisabledFooter = "~e~This is the default disabled fallback text"
                     }
                 },
+                {
+                    Id = "LONG_MENU",
+                    Scene = "MENU_LIST",
+                    Label = "Long Menu",
+                    Items = getLongMenu(),
+                    Footer = "~e~Caution: This may cause a slight stutter to occur",
+                    Data = {
+                        ItemDescription = "A menu with a large number of items to test scrolling behavior. Scrolling too fast may cause some items to not render properly.",
+                    }
+                }
             },
             Data = {
                 ItemDescription = "A showcase of various menu features in practice. Have a cool idea for a demo? Report it on the GitHub page!",
