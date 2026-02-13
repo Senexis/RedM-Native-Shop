@@ -151,7 +151,8 @@ end
 
 function ShopUI.CreateTextEntry(type, id, text)
     local key = string.format(
-        "NSUI_%s_%s",
+        "%s_%s_%s",
+        ShopNavigator:getRootMenuId() or "NSUI",
         tostring(type):upper(),
         tostring(id):upper()
     )
