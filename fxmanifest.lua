@@ -21,5 +21,5 @@ client_scripts {
     "client/ui.lua",
     "client/shop.lua",
 
-    "client/shops/*.lua"
+    "client/shops/**/*.lua"
 }

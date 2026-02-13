@@ -1,5 +1,5 @@
 local data = {
-    Id = "TEST_SUB_MENU",
+    Id = "DEMO_SUB_MENU",
     Title = "SUB MENU DEMO",
     Subtitle = "This is the main menu",
     Scene = "MENU_LIST",
@@ -29,4 +29,4 @@ local data = {
     }
 }
 
-ShopNavigator:register(data, {}, {})
+ShopNavigator:register(data)
