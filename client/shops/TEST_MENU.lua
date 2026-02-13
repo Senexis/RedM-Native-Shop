@@ -36,6 +36,15 @@ local data = {
                     }
                 },
                 {
+                    Id = "DEMO_BASIC_SHOP",
+                    Label = "Basic Shop",
+                    LinkMenuId = "DEMO_BASIC_SHOP",
+                    LinkPageId = nil,
+                    Data = {
+                        ItemDescription = "A basic shop menu showcasing quantity selection, pricing, and stock management.",
+                    }
+                },
+                {
                     Id = "DEMO_FAST_TRAVEL",
                     Label = "Fast Travel",
                     LinkMenuId = "DEMO_FAST_TRAVEL",
