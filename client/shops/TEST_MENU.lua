@@ -1,5 +1,7 @@
+local MENU_ID <const> = "TEST_MENU"
+
 local data = {
-    Id = "TEST_MENU",
+    Id = MENU_ID,
     Title = "NATIVE SHOP",
     Subtitle = "Crafted by Senexis",
     Scene = "MENU_LIST",
@@ -122,6 +124,10 @@ local function getActionCooldownFooter(secondsLeft)
 end
 
 AddEventHandler("native_shop:item_selected", function(event)
+    if ShopNavigator:getRootMenuId() ~= MENU_ID then
+        return
+    end
+
     if event.ID == "DEMO_COOLDOWN" then
         actionCooldownSeconds = 5
 
@@ -134,6 +140,10 @@ AddEventHandler("native_shop:item_selected", function(event)
 end)
 
 AddEventHandler("native_shop:item_action", function(event)
+    if ShopNavigator:getRootMenuId() ~= MENU_ID then
+        return
+    end
+
     if event.ID == "PROMPTS_ACTION" or event.ID == "HELD_PROMPTS_ACTION" then
         if event.ActionParameter then
             PostFeedTicker(string.format("Action: '%s' with parameter '%s'", event.Action, event.ActionParameter))
@@ -148,7 +158,7 @@ ShopNavigator:register(data)
 Citizen.CreateThread(function()
     while true do
         -- For performance reasons, only trigger events when the roleplay text menu is open
-        if ShopNavigator:getRootMenuId() == "TEST_MENU" then
+        if ShopNavigator:getRootMenuId() == MENU_ID then
             if actionCooldownSeconds == 0 then
                 actionCooldownSeconds = -1
 
@@ -196,7 +206,7 @@ Citizen.CreateThread(function()
                     end
 
                     if UiPromptGetProgress(prompt) == 1.0 then
-                        TriggerEvent("shop:open", "TEST_MENU")
+                        TriggerEvent("shop:open", MENU_ID)
                     end
 
                     UiPromptDelete(prompt)

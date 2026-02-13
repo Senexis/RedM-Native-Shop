@@ -1,3 +1,5 @@
+local MENU_ID <const> = "DEMO_BASIC_SHOP"
+
 local shop_inventory = {
     { ID = "CONSUMABLE_APRICOTS_CAN",     Category = "CANNED_GOODS", Stock = 1,  Price = 75,  SalePrice = math.floor(75 * 0.9) },
     { ID = "CONSUMABLE_BAKED_BEANS_CAN",  Category = "CANNED_GOODS", Stock = 5,  Price = 120, SalePrice = math.floor(120 * 0.9) },
@@ -72,7 +74,7 @@ local player_inventory = {
 }
 
 local data = {
-    Id = "DEMO_BASIC_SHOP",
+    Id = MENU_ID,
     Title = "GENERAL STORE",
     Scene = "ITEM_LIST_RPG_STATS",
     AllowWalking = true,
@@ -141,7 +143,11 @@ local function getBasicShopItems(filter)
 end
 
 AddEventHandler("native_shop:item_action", function(event)
-    if tostring(event.ID):find("SHOP_ITEM_") then
+    if ShopNavigator:getRootMenuId() ~= MENU_ID then
+        return
+    end
+
+    if event.Action == "adjust" and tostring(event.ID):find("SHOP_ITEM_") then
         local delta = event.ActionParameter or 0
         local itemId = tostring(event.ID):gsub("SHOP_ITEM_", "")
 
@@ -157,15 +163,18 @@ AddEventHandler("native_shop:item_action", function(event)
                 end
 
                 item.__purchase_quantity = quantity
-                break
+                TriggerEvent("shop:refresh_menu", MENU_ID)
+                return
             end
         end
-
-        TriggerEvent("shop:refresh_menu", "DEMO_BASIC_SHOP")
     end
 end)
 
 AddEventHandler("native_shop:item_selected", function(event)
+    if ShopNavigator:getRootMenuId() ~= MENU_ID then
+        return
+    end
+
     if tostring(event.ID):find("SHOP_ITEM_") then
         local itemId = tostring(event.ID):gsub("SHOP_ITEM_", "")
 
@@ -177,7 +186,7 @@ AddEventHandler("native_shop:item_selected", function(event)
                 player_inventory[item.ID] = (player_inventory[item.ID] or 0) + quantity
 
                 item.__purchase_quantity = nil
-                TriggerEvent("shop:refresh_menu", "DEMO_BASIC_SHOP")
+                TriggerEvent("shop:refresh_menu", MENU_ID)
                 return
             end
         end

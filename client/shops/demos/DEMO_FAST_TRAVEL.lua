@@ -1,5 +1,7 @@
+local MENU_ID <const> = "DEMO_FAST_TRAVEL"
+
 local data = {
-    Id = "DEMO_FAST_TRAVEL",
+    Id = MENU_ID,
     Title = "FAST TRAVEL",
     Scene = "ITEM_LIST_DESCRIPTION",
     AllowWalking = true,
@@ -68,6 +70,10 @@ local function getFastTravelItems(filter)
 end
 
 AddEventHandler("native_shop:item_selected", function(event)
+    if ShopNavigator:getRootMenuId() ~= MENU_ID then
+        return
+    end
+
     if tostring(event.ID):find("FAST_TRAVEL_") then
         PostFeedTicker(string.format("Selected: '%s'", event.ID))
     end
@@ -77,8 +83,8 @@ ShopNavigator:register(data, { FastTravelItems = getFastTravelItems })
 
 Citizen.CreateThread(function()
     while true do
-        if ShopNavigator:getRootMenuId() == "DEMO_FAST_TRAVEL" then
-            TriggerEvent("shop:refresh_menu", "DEMO_FAST_TRAVEL")
+        if ShopNavigator:getRootMenuId() == MENU_ID then
+            TriggerEvent("shop:refresh_menu", MENU_ID)
         end
 
         Citizen.Wait(1000)
