@@ -707,6 +707,17 @@ function ShopNavigator:getParentIdForMenu(menuId)
     return nil
 end
 
+--- (Utility) Gets the ID of the menu that linked to the current menu tree via a LinkMenuId item.
+---@param self ShopNavigator
+---@return string|nil The Menu ID that initiated the link, or nil if the current menu was not reached via a link.
+function ShopNavigator:getLinkedFromMenuId()
+    if #self.rootStack > 0 then
+        local previousState = self.rootStack[#self.rootStack]
+        return previousState.MenuId
+    end
+    return nil
+end
+
 -- Gets the title of the current view, which is either the active tab's title
 -- or the current or root menu's title if no tabs are present.
 ---@param self ShopNavigator

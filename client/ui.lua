@@ -2033,7 +2033,8 @@ end
 
 function ShopUI.Prompts.UpdateBackPrompt()
     local hasParent = ShopNavigator:getParentIdForMenu() ~= nil
-    local backLabel = hasParent and "IB_BACK" or "IB_EXIT"
+    local hasLinkedFromMenu = ShopNavigator:getLinkedFromMenuId() ~= nil
+    local backLabel = (hasParent or hasLinkedFromMenu) and "IB_BACK" or "IB_EXIT"
 
     ShopUI.Prompts.SetPromptLabel(7, GetStringFromHashKey(backLabel))
     ShopUI.Prompts.SetPromptEnabled(7, true)
