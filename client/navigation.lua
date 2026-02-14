@@ -431,11 +431,34 @@ function ShopNavigator:refreshCurrentPage()
     self:_rebuildCurrentItems()
 end
 
+--- Retrieves the Initial Root ID (Entry Point) of the current session.
+--- This represents the absolute bottom of the navigation stack.
+---@return string|nil The initial root ID, or nil if nothing is active.
+function ShopNavigator:getInitialRootId()
+    if #self.rootStack > 0 then
+        -- The first item in the stack is the first menu tree we entered
+        return self.rootStack[1].RootId
+    end
+    -- If stack is empty, the current root is the initial root
+    return self.currentRootId
+end
+
+--- Restores the current menu state without resetting navigation history.
+--- Used when un-hiding a menu.
+---@return number|nil The stored focus index for the UI.
+function ShopNavigator:restore()
+    if self.currentMenuId and self.currentRootId then
+        self:_setMenuState(self.currentMenuId, self.currentRootId)
+        return self.focusMemory[self.currentMenuId] or 1
+    end
+    return nil
+end
+
 --- Jumps to a menu by its ID, clearing all navigation history.
 ---@param menuId string The ID of the menu to jump to.
 ---@param linkData any|nil Optional data to pass to the menu (if it is a generator root).
 ---@return number|nil The suggested focus index for the UI or nil if invalid.
-function ShopNavigator:jumpToMenu(menuId, linkData)
+function ShopNavigator:open(menuId, linkData)
     local targetRootId = self:getRootIdForMenu(menuId)
 
     -- Fallback: Check if the menuId itself is a registered generator root that hasn't been mapped yet
@@ -444,7 +467,7 @@ function ShopNavigator:jumpToMenu(menuId, linkData)
     end
 
     if not targetRootId then
-        print("[NativeShop] jumpToMenu called with invalid menu ID: " .. menuId)
+        print("[NativeShop] Open called with invalid menu ID: " .. menuId)
         return nil
     end
 
@@ -540,12 +563,19 @@ function ShopNavigator:navigateInto(index)
         elseif item.Action == "BACK" then
             return self:navigateBack() or 1
         elseif item.Action == "ROOT" then
-            local rootMenu = self:getRootMenu()
-            if not rootMenu then
-                self.onError("No root menu found for current context. Cannot navigate to ROOT.")
+            -- Find the absolute bottom of the Root Stack (the main application entry point)
+            local targetId = self:getInitialRootId()
+
+            if not targetId then
+                self.onError("Could not determine Root ID.")
                 return false
             end
-            local result = self:jumpToMenu(rootMenu.Id)
+
+            -- Ensure hard reset to root by clearing stack manually
+            self.rootStack = {}
+            self.history = {}
+
+            local result = self:open(targetId)
             TriggerEvent("native_shop:menu_navigated", {
                 RootId = self.currentRootId,
                 Menu = self:getCurrentMenu(),

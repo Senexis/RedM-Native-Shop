@@ -285,34 +285,30 @@ function ShopUI.Open(id)
     ShopData.state.shuttingDown = false
 
     if ShopData.state.hiddenMenu == id then
-        ShopData.state.hiddenMenu = nil
-
+        ShopNavigator:restore()
         TriggerEvent("native_shop:showing", id)
     else
-        local focusIndex = ShopNavigator:jumpToMenu(id)
-        if not focusIndex then return end
-
+        ShopNavigator:open(id)
         TriggerEvent("native_shop:opening", id)
     end
 
+    ShopData.state.hiddenMenu = nil
     LaunchUiappWithEntry("shop_menu", "generic_shop")
 end
 
 function ShopUI.Hide()
-    ShopData.state.hiddenMenu = ShopNavigator:getRootMenuId()
+    ShopData.state.hiddenMenu = ShopNavigator:getInitialRootId()
     ShopData.state.entryFocusIndex = ShopEvents.state.focusedIndex + 1
-    TriggerEvent("native_shop:hiding", ShopNavigator.currentMenuId)
 
-    -- Clean up actively running tasks
+    TriggerEvent("native_shop:hiding", ShopNavigator.currentMenuId)
     ShopUI.OnShutdown()
 end
 
 function ShopUI.Exit()
     ShopData.state.hiddenMenu = nil
     ShopData.state.entryFocusIndex = 1
-    TriggerEvent("native_shop:closing", ShopNavigator.currentMenuId)
 
-    -- Clean up actively running tasks
+    TriggerEvent("native_shop:closing", ShopNavigator.currentMenuId)
     ShopUI.OnShutdown()
 end
 
