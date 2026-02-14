@@ -100,6 +100,17 @@ local data = {
             },
             Items = {
                 {
+                    Id = "ACTION_FUNCTION",
+                    Type = "TEXT",
+                    Label = "Function",
+                    Data = {
+                        ItemDescription = "Showcases an example of a custom function action. Selecting this item will execute the provided function.",
+                    },
+                    Action = function(item)
+                        PostFeedTicker(string.format("Custom function %s executed", item.Id))
+                    end
+                },
+                {
                     Id = "ACTION_BACK",
                     Type = "TEXT",
                     Label = "Go Back",

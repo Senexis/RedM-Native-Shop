@@ -65,6 +65,15 @@ local data = {
                     }
                 },
                 {
+                    Id = "DEMO_PLAYERS",
+                    Label = "Players",
+                    LinkMenuId = "DEMO_PLAYERS",
+                    LinkPageId = nil,
+                    Data = {
+                        ItemDescription = "A demo player list menu showcasing dynamic items based on nearby players, with a dynamic context menu for player interactions.",
+                    }
+                },
+                {
                     Id = "DEMO_LONG_MENU",
                     Scene = "MENU_LIST",
                     Label = "Long Menu",

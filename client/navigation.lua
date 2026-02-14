@@ -1,5 +1,7 @@
 ---@class ShopNavigator
 ---@field allData table A map of { [rootId] = menuData } to store all registered trees.
+---@field generators table A map of { [rootId] = generatorFunction } for dynamic root menus.
+---@field generatorData table A map of { [rootId] = lastLinkData } to track context for persistence.
 ---@field dataSources table A map of { [rootId] = { [sourceName] = getterFunction } }
 ---@field contextProviders table A map of { [rootId] = { [providerName] = providerFunction } }
 ---@field menuMap table A map of { [menuId] = menuObject } for fast static menu access.
@@ -13,7 +15,6 @@
 ---@field currentMenuId string|nil The ID of the currently active static menu.
 ---@field currentRootId string|nil The ID of the root of the currently active menu tree.
 ---@field currentPageIndex number The 1-based index for the active tab on a menu.
----@field dynamicMenuContext table|nil The context object for the current dynamic menu.
 ---@field currentItems table The unified list of items to be displayed by the UI.
 ShopNavigator = {}
 
@@ -22,15 +23,20 @@ ShopNavigator = {}
 -- ===================================================================
 
 ShopNavigator.allData = {}
+ShopNavigator.generators = {}
+ShopNavigator.generatorData = {}
 ShopNavigator.dataSources = {}
 ShopNavigator.contextProviders = {}
-ShopNavigator.menuMap, ShopNavigator.parentMap = {}, {}
-ShopNavigator.itemOverrides, ShopNavigator.visibilityOverrides = {}, {}
-ShopNavigator.history, ShopNavigator.focusMemory = {}, {}
+ShopNavigator.menuMap = {}
+ShopNavigator.parentMap = {}
+ShopNavigator.itemOverrides = {}
+ShopNavigator.visibilityOverrides = {}
+ShopNavigator.history = {}
+ShopNavigator.focusMemory = {}
 ShopNavigator.rootStack = {}
-ShopNavigator.currentMenuId, ShopNavigator.currentRootId = nil, nil
+ShopNavigator.currentMenuId = nil
+ShopNavigator.currentRootId = nil
 ShopNavigator.currentPageIndex = 1
-ShopNavigator.dynamicMenuContext = nil
 ShopNavigator.currentItems = {}
 ShopNavigator.onError = function(message)
     print("[NativeShop] " .. tostring(message))
@@ -48,8 +54,52 @@ local function shallowCopy(original)
     return copy
 end
 
+--- (Private) centralized logic to extract a unique identifier from a context object.
+---@param context any The context data (table or primitive).
+---@return string|number|nil The extracted ID or the context itself if primitive.
+function ShopNavigator:_extractContextId(context)
+    if type(context) == "table" then
+        return context.Id or context.ID or context.id or context.uid
+    end
+    return context
+end
+
+--- (Private) Checks if two context objects represent the same entity.
+--- Uses object equality first, then checks for matching extracted IDs.
+---@param a any First context.
+---@param b any Second context.
+---@return boolean True if contexts are effectively the same.
+function ShopNavigator:_isSameContext(a, b)
+    if a == b then return true end
+
+    local idA = self:_extractContextId(a)
+    local idB = self:_extractContextId(b)
+
+    -- Only return true if both IDs are valid (not nil) and equal
+    return idA ~= nil and idB ~= nil and idA == idB
+end
+
+--- (Private) Generates a unique ID for a menu item based on the current dynamic context.
+--- Appends the context ID (if available) to the base ID to ensure unique translation keys.
+---@param baseId string The static ID of the menu or tab.
+---@return string The unique ID string.
+function ShopNavigator:_getUniqueId(baseId)
+    if not baseId then return "" end
+
+    local rootId = self.currentRootId
+    local context = self.generatorData[rootId]
+
+    if context then
+        local suffix = self:_extractContextId(context)
+        if suffix then
+            return string.format("%s_%s", baseId, tostring(suffix))
+        end
+    end
+
+    return baseId
+end
+
 --- (Private) Recursively scans the static menuData to populate lookup maps.
----@param self ShopNavigator
 ---@param menu table The menu definition to process.
 ---@param parentId string|nil The ID of the parent menu.
 ---@param rootId string The ID of the root menu for this tree.
@@ -64,14 +114,14 @@ function ShopNavigator:_buildLookups(menu, parentId, rootId)
 
     if menu.Items then
         for _, item in ipairs(menu.Items) do
-            if item.Items or item.Tabs then -- It's a submenu if it has items or tabs
+            if item.Items or item.Tabs then
                 self:_buildLookups(item, menu.Id, rootId)
             end
         end
     end
     if menu.Tabs then
         for _, tab in ipairs(menu.Tabs) do
-            if tab.Items or tab.Tabs then -- A tab can also be a complex menu
+            if tab.Items or tab.Tabs then
                 self:_buildLookups(tab, menu.Id, rootId)
             end
         end
@@ -79,7 +129,6 @@ function ShopNavigator:_buildLookups(menu, parentId, rootId)
 end
 
 --- (Private) Determines if a menu item should be visible.
----@param self ShopNavigator
 ---@param item table The item or menu object to check.
 ---@return boolean True if the item should be visible.
 function ShopNavigator:_isItemVisible(item)
@@ -90,7 +139,7 @@ function ShopNavigator:_isItemVisible(item)
 end
 
 --- (Private) Retrieves all items for a given menu or page object.
----@param self ShopNavigator
+--- Handles static items, runtime overrides, and dynamic DataSources.
 ---@param menuOrPage table The menu or page object.
 ---@return table An array of all potential item objects.
 function ShopNavigator:_getAllItemsForObject(menuOrPage)
@@ -98,11 +147,14 @@ function ShopNavigator:_getAllItemsForObject(menuOrPage)
     if self.itemOverrides[menuOrPage.Id] then
         return self.itemOverrides[menuOrPage.Id]
     end
+
     if menuOrPage.Source then
         local rootId = self.currentRootId
         if not rootId then return {} end
+
         local sourceGroup = self.dataSources[rootId] or {}
         local getter = sourceGroup[menuOrPage.Source.Name]
+
         if getter then
             local ok, dynamicItems = pcall(getter, menuOrPage.Source.Filter)
             if ok then
@@ -115,27 +167,59 @@ function ShopNavigator:_getAllItemsForObject(menuOrPage)
         end
         return {}
     end
+
     return menuOrPage.Items or {}
 end
 
 --- (Private) Gets the raw menu definition object for the current state.
----@param self ShopNavigator
 ---@return table|nil The raw menu object.
 function ShopNavigator:_getRawCurrentMenu()
-    if self.dynamicMenuContext then
-        return self.dynamicMenuContext
-    elseif self.currentRootId and self.currentMenuId then
+    if self.currentRootId and self.currentMenuId then
         local menuTree = self.menuMap[self.currentRootId]
         if menuTree then return menuTree[self.currentMenuId] end
     end
     return nil
 end
 
+--- (Private) Processes a single item to determine navigation flags, visibility, and conflict resolution.
+---@param itemData table The raw item data.
+---@param menuId string The ID of the current container menu.
+---@return table|nil The processed item, or nil if invisible.
+function ShopNavigator:_processItem(itemData, menuId)
+    if not self:_isItemVisible(itemData) then
+        return nil
+    end
+
+    local processedItem = shallowCopy(itemData)
+    processedItem.MenuId = menuId
+
+    -- Warning: Check for conflict: LinkMenuId AND Items/Tabs/Source
+    if processedItem.LinkMenuId and (processedItem.Items or processedItem.Tabs or processedItem.Source) then
+        print("[NativeShop] Warning: Item '" .. tostring(processedItem.Id) .. "' has both LinkMenuId and Items/Tabs/Source. Ignoring items and using Link.")
+        processedItem.Items = nil
+        processedItem.Tabs = nil
+        processedItem.Source = nil
+    end
+
+    -- Determine if this item should be treated as a navigation item
+    if processedItem.Items or processedItem.Tabs or processedItem.Source then
+        processedItem.HasNavigation = true
+        -- Disable if empty (and not hidden logic excluded)
+        if self:getItemCount(itemData.Id, self.currentRootId, { IncludeHidden = false }) == 0 then
+            processedItem.Disabled = true
+        end
+    elseif processedItem.LinkMenuId then
+        processedItem.HasNavigation = true
+    elseif processedItem.Action then
+        processedItem.HasNavigation = true
+    end
+
+    return processedItem
+end
+
 --- (Private) Rebuilds the `currentItems` list for the current view.
 --- This combines items from the menu's `Items` list and the active `Tab`.
----@param self ShopNavigator
 function ShopNavigator:_rebuildCurrentItems()
-    if self.dynamicMenuContext then return end
     local menu = self:_getRawCurrentMenu()
     if not menu then
         self.currentItems = {}
@@ -144,54 +228,24 @@ function ShopNavigator:_rebuildCurrentItems()
 
     local combinedItems = {}
 
-    -- Process the standard Items list
+    -- 1. Process the standard Items list
     local standardItems = self:_getAllItemsForObject(menu)
     for _, itemData in ipairs(standardItems) do
-        if self:_isItemVisible(itemData) then
-            local processedItem = shallowCopy(itemData)
-            processedItem.MenuId = menu.Id
-
-            -- Check for conflict: LinkMenuId AND Items/Tabs/Source
-            if processedItem.LinkMenuId and (processedItem.Items or processedItem.Tabs or processedItem.Source) then
-                print("[NativeShop] Warning: Item '" .. tostring(processedItem.Id) .. "' has both LinkMenuId and Items/Tabs/Source. Ignoring items and using Link.")
-                processedItem.Items = nil
-                processedItem.Tabs = nil
-                processedItem.Source = nil
-            end
-
-            -- Determine if it's a submenu or a link
-            if processedItem.Items or processedItem.Tabs or processedItem.Source then
-                processedItem.IsSubmenu = true
-
-                -- Disable if empty
-                if self:getItemCount(itemData.Id, self.currentRootId, { IncludeHidden = false }) == 0 then
-                    processedItem.Disabled = true
-                end
-            elseif processedItem.LinkMenuId then
-                -- Link items are considered submenus for navigation purposes
-                processedItem.IsSubmenu = true
-
-                -- Do NOT disable links even if they have no "child" items in this context,
-                -- because the items exist in the target menu, not here.
-            elseif processedItem.Action then
-                -- Action items are also considered submenus since they trigger something beyond just being a leaf item.
-                processedItem.IsSubmenu = true
-            end
-
-            table.insert(combinedItems, processedItem)
+        local processed = self:_processItem(itemData, menu.Id)
+        if processed then
+            table.insert(combinedItems, processed)
         end
     end
 
-    -- Process the active Tab's items
+    -- 2. Process the active Tab's items
     if menu.Tabs and #menu.Tabs > 0 then
         local activeTab = menu.Tabs[self.currentPageIndex]
         if activeTab then
             local tabItems = self:_getAllItemsForObject(activeTab)
             for _, itemData in ipairs(tabItems) do
-                if self:_isItemVisible(itemData) then
-                    local processedItem = shallowCopy(itemData)
-                    processedItem.MenuId = menu.Id
-                    table.insert(combinedItems, processedItem)
+                local processed = self:_processItem(itemData, menu.Id)
+                if processed then
+                    table.insert(combinedItems, processed)
                 end
             end
         end
@@ -207,11 +261,43 @@ function ShopNavigator:_rebuildCurrentItems()
 end
 
 --- (Private) Sets the navigator to a specific static menu state.
----@param self ShopNavigator
+--- Handles dynamic generation if the root is a registered generator.
 ---@param menuId string The ID of the static menu to switch to.
 ---@param rootId string The root ID of the tree this menu belongs to.
+---@param linkData any|nil Optional data passed if this navigation was triggered by a link.
 ---@return number The suggested focus index for the UI.
-function ShopNavigator:_setMenuState(menuId, rootId)
+function ShopNavigator:_setMenuState(menuId, rootId, linkData)
+    -- Handle Dynamic Generation
+    if self.generators[rootId] then
+        -- 1. Check if the context has changed
+        -- If linkData is provided, compare it against the cached context.
+        if linkData ~= nil then
+            local lastData = self.generatorData[rootId]
+
+            if not self:_isSameContext(linkData, lastData) then
+                self.focusMemory[rootId] = nil -- Context switched: Reset focus
+                self.generatorData[rootId] = linkData -- Update context
+            end
+        end
+
+        -- 2. Execute Generator
+        local contextToUse = linkData or self.generatorData[rootId]
+        local success, newMenuData = pcall(self.generators[rootId], contextToUse)
+
+        if not success or not newMenuData then
+            self.onError("Generator for root '" .. rootId .. "' failed or returned nil: " .. tostring(newMenuData))
+            return 1
+        end
+
+        newMenuData.Id = rootId
+
+        -- 3. Update Lookups
+        self.menuMap[rootId] = {}
+        self.parentMap[rootId] = {}
+        self.allData[rootId] = newMenuData
+        self:_buildLookups(newMenuData, nil, rootId)
+    end
+
     if not self.menuMap[rootId] or not self.menuMap[rootId][menuId] then
         print("[NativeShop] Attempted to set state to an invalid menu ID: " .. menuId)
         return 1
@@ -225,19 +311,18 @@ function ShopNavigator:_setMenuState(menuId, rootId)
 end
 
 --- (Private) Pushes the current view's state onto the history stack.
----@param self ShopNavigator
 ---@param focusIndex number The UI's current focus index to save.
 function ShopNavigator:_saveStateToHistory(focusIndex)
-    if self.dynamicMenuContext then
-        table.insert(self.history, { Type = "dynamic", Context = self.dynamicMenuContext, FocusIndex = focusIndex })
-    else
-        table.insert(self.history, { Type = "static", MenuId = self.currentMenuId, PageIndex = self.currentPageIndex, FocusIndex = focusIndex })
-    end
+    table.insert(self.history, {
+        Type = "static",
+        MenuId = self.currentMenuId,
+        PageIndex = self.currentPageIndex,
+        FocusIndex = focusIndex
+    })
 end
 
 --- (Private) Builds a history stack from a target item back to its root.
 --- Used when deep-linking into a menu to simulate user navigation.
----@param self ShopNavigator
 ---@param targetMenuId string The ID we are jumping to.
 ---@param rootId string The root of the tree.
 function ShopNavigator:_simulateHistoryPath(targetMenuId, rootId)
@@ -248,7 +333,6 @@ function ShopNavigator:_simulateHistoryPath(targetMenuId, rootId)
     -- 1. Trace parents upwards until we hit the root or nil
     while currentId do
         local parentId = self.parentMap[rootId][currentId]
-
         if parentId then
             table.insert(path, parentId)
             currentId = parentId
@@ -258,7 +342,6 @@ function ShopNavigator:_simulateHistoryPath(targetMenuId, rootId)
     end
 
     -- 2. Reverse the path to push into history in correct order (Root -> Child -> TargetParent)
-    -- We assume default page index 1 and default focus index 1 for these simulated steps.
     for i = #path, 1, -1 do
         local ancestorId = path[i]
         table.insert(self.history, {
@@ -274,17 +357,17 @@ end
 -- Public API
 -- ===================================================================
 
---- Registers a shop and its associated handlers with the navigator.
----@param menuData table The root menu configuration object to add.
----@param dataSources table|nil A map of { [sourceName] = getterFunction } for this menu.
----@param contextProviders table|nil A map of { [providerName] = providerFunction } for this menu.
+--- Registers a static shop table.
+---@param menuData table The root menu configuration object. Must have an Id.
+---@param dataSources table|nil A map of { [sourceName] = getterFunction }.
+---@param contextProviders table|nil A map of { [providerName] = providerFunction }.
 function ShopNavigator:register(menuData, dataSources, contextProviders)
     if not menuData or not menuData.Id then
         print("[NativeShop] Registration failed. Provided menuData is invalid or has no root Id.")
         return
     end
     local rootId = menuData.Id
-    if self.allData[rootId] then
+    if self.allData[rootId] or self.generators[rootId] then
         print("[NativeShop] A menu with root ID '" .. rootId .. "' has already been registered. Skipping.")
         return
     end
@@ -294,8 +377,27 @@ function ShopNavigator:register(menuData, dataSources, contextProviders)
     self:_buildLookups(menuData, nil, rootId)
 end
 
+--- Registers a dynamic shop generator.
+---@param rootId string The ID for this dynamic menu root.
+---@param generator function A function(context) returning a menu table.
+---@param dataSources table|nil A map of { [sourceName] = getterFunction }.
+---@param contextProviders table|nil A map of { [providerName] = providerFunction }.
+function ShopNavigator:registerDynamic(rootId, generator, dataSources, contextProviders)
+    if not rootId or type(generator) ~= "function" then
+        print("[NativeShop] Dynamic registration failed. Invalid ID or generator.")
+        return
+    end
+    if self.allData[rootId] or self.generators[rootId] then
+        print("[NativeShop] A menu with root ID '" .. rootId .. "' has already been registered. Skipping.")
+        return
+    end
+
+    self.generators[rootId] = generator
+    self.dataSources[rootId] = dataSources or {}
+    self.contextProviders[rootId] = contextProviders or {}
+end
+
 --- Overrides the item list for a specific menu or page at runtime.
----@param self ShopNavigator
 ---@param objectId string The ID of the menu or page whose items should be replaced.
 ---@param newItems table An array of item objects to display.
 function ShopNavigator:overrideMenuItems(objectId, newItems)
@@ -314,7 +416,6 @@ function ShopNavigator:overrideMenuItems(objectId, newItems)
 end
 
 --- Clears a runtime override for a specific menu or page.
----@param self ShopNavigator
 ---@param objectId string The ID of the menu/page whose override should be cleared.
 function ShopNavigator:clearMenuOverride(objectId)
     if not self.itemOverrides[objectId] then return end
@@ -323,7 +424,6 @@ function ShopNavigator:clearMenuOverride(objectId)
 end
 
 --- Sets the runtime visibility of a specific menu or item.
----@param self ShopNavigator
 ---@param menuId string The ID of the menu/item to toggle.
 ---@param isVisible boolean|nil `true` to show, `false` to hide, `nil` to reset.
 function ShopNavigator:setMenuVisibility(menuId, isVisible)
@@ -333,17 +433,22 @@ function ShopNavigator:setMenuVisibility(menuId, isVisible)
 end
 
 --- Forces the current page to refresh its item list.
----@param self ShopNavigator
 function ShopNavigator:refreshCurrentPage()
     self:_rebuildCurrentItems()
 end
 
---- Jumps to a static menu by its ID, clearing all navigation history.
----@param self ShopNavigator
+--- Jumps to a menu by its ID, clearing all navigation history.
 ---@param menuId string The ID of the menu to jump to.
+---@param linkData any|nil Optional data to pass to the menu (if it is a generator root).
 ---@return number|nil The suggested focus index for the UI or nil if invalid.
-function ShopNavigator:jumpToMenu(menuId)
+function ShopNavigator:jumpToMenu(menuId, linkData)
     local targetRootId = self:getRootIdForMenu(menuId)
+
+    -- Fallback: Check if the menuId itself is a registered generator root that hasn't been mapped yet
+    if not targetRootId and self.generators[menuId] then
+        targetRootId = menuId
+    end
+
     if not targetRootId then
         print("[NativeShop] jumpToMenu called with invalid menu ID: " .. menuId)
         return nil
@@ -351,18 +456,17 @@ function ShopNavigator:jumpToMenu(menuId)
 
     self.history = {}
     self.rootStack = {}
-    self.dynamicMenuContext = nil
     self.focusMemory = {}
+    self.generatorData = {}
     self.itemOverrides = {}
     self.visibilityOverrides = {}
 
-    return self:_setMenuState(menuId, targetRootId)
+    return self:_setMenuState(menuId, targetRootId, linkData)
 end
 
 function ShopNavigator:close()
     self.history = {}
     self.rootStack = {}
-    self.dynamicMenuContext = nil
     self.currentMenuId = nil
     self.currentRootId = nil
     self.currentPageIndex = 1
@@ -370,7 +474,6 @@ function ShopNavigator:close()
 end
 
 --- Handles a "select" action for forward navigation.
----@param self ShopNavigator
 ---@param index number The 1-based index of the item to act on.
 ---@return number|boolean|nil A new focus index, `false` on error, or nil.
 function ShopNavigator:navigateInto(index)
@@ -378,36 +481,15 @@ function ShopNavigator:navigateInto(index)
     if not item or item.Disabled then return nil end
     if self.currentMenuId then self.focusMemory[self.currentMenuId] = index end
 
-    if item.Context then
-        local rootId = self.dynamicMenuContext and self.dynamicMenuContext.originRootId or self.currentRootId
-        if not rootId then
-            self.onError("Could not determine menu root to find context provider.")
-            return false
-        end
-        local providerGroup = self.contextProviders[rootId] or {}
-        local provider = providerGroup[item.Context]
-        if not provider then
-            print("[NativeShop] ContextProvider '" .. item.Context .. "' not found.")
-            return nil
-        end
-        local ok, context = pcall(provider, item)
-        if ok and context and type(context) == "table" then
-            self:_saveStateToHistory(index)
-            context.originRootId = rootId
-            self.dynamicMenuContext = context
-            self.currentItems = context.Items or {}
-            TriggerEvent("native_shop:menu_navigated", { RootId = rootId, Menu = self:getCurrentMenu(), Index = 1, Direction = "forward" })
-            return 1
-        elseif not ok then
-            self.onError("ContextProvider '" .. item.Context .. "' failed: " .. tostring(context))
-            return false
-        end
-        return nil
-    end
-
     -- Handle LinkMenuId navigation (Jumping to another menu tree)
     if item.LinkMenuId then
         local targetRoot = self:getRootIdForMenu(item.LinkMenuId)
+
+        -- If not found in static maps, check if it's a generator root directly
+        if not targetRoot and self.generators[item.LinkMenuId] then
+            targetRoot = item.LinkMenuId
+        end
+
         if not targetRoot then
             print("[NativeShop] LinkMenuId '" .. item.LinkMenuId .. "' could not be resolved to a registered root.")
             return nil
@@ -419,35 +501,38 @@ function ShopNavigator:navigateInto(index)
             MenuId = self.currentMenuId,
             PageIndex = self.currentPageIndex,
             History = self.history,
-            DynamicContext = self.dynamicMenuContext,
             FocusIndex = index
         })
 
         -- Reset local state for the new menu tree
         self.history = {}
-        self.dynamicMenuContext = nil
         self.currentPageIndex = 1
 
         -- Determine Target Menu
         local targetMenuId = item.LinkMenuId
         if item.LinkPageId then
-            -- Verify LinkPageId exists within the target root
-            if self.menuMap[targetRoot][item.LinkPageId] then
+            if self.menuMap[targetRoot] and self.menuMap[targetRoot][item.LinkPageId] then
                 targetMenuId = item.LinkPageId
             else
-                print("[NativeShop] Warning: LinkPageId '" .. item.LinkPageId .. "' not found in root '" .. targetRoot .. "'. Defaulting to '" .. targetMenuId .. "'.")
+                if not self.generators[targetRoot] then
+                    print("[NativeShop] Warning: LinkPageId '" .. item.LinkPageId .. "' not found. Defaulting to '" .. targetMenuId .. "'.")
+                end
             end
         end
 
         -- Handle History Simulation (LinkBackToParent)
-        -- If true: We populate self.history with the path from Root -> TargetMenu
-        -- If false: self.history remains empty, so "Back" pops the RootStack immediately.
         if item.LinkBackToParent and targetMenuId ~= targetRoot then
             self:_simulateHistoryPath(targetMenuId, targetRoot)
         end
 
-        local result = self:_setMenuState(targetMenuId, targetRoot)
-        TriggerEvent("native_shop:menu_navigated", { RootId = self.currentRootId, Menu = self:getCurrentMenu(), Index = result, Direction = "forward" })
+        -- Pass item.LinkData to _setMenuState for dynamic generators
+        local result = self:_setMenuState(targetMenuId, targetRoot, item.LinkData)
+        TriggerEvent("native_shop:menu_navigated", {
+            RootId = self.currentRootId,
+            Menu = self:getCurrentMenu(),
+            Index = result,
+            Direction = "forward"
+        })
         return result
     end
 
@@ -462,34 +547,40 @@ function ShopNavigator:navigateInto(index)
             return self:navigateBack() or 1
         elseif item.Action == "ROOT" then
             local rootMenu = self:getRootMenu()
-
             if not rootMenu then
                 self.onError("No root menu found for current context. Cannot navigate to ROOT.")
                 return false
             end
-
             local result = self:jumpToMenu(rootMenu.Id)
-            TriggerEvent("native_shop:menu_navigated", { RootId = self.currentRootId, Menu = self:getCurrentMenu(), Index = result, Direction = "forward" })
+            TriggerEvent("native_shop:menu_navigated", {
+                RootId = self.currentRootId,
+                Menu = self:getCurrentMenu(),
+                Index = result,
+                Direction = "forward"
+            })
             return result
         elseif type(item.Action) == "function" then
             local ok, result = pcall(item.Action, item)
-
             if not ok then
                 self.onError("Action for item '" .. tostring(item.Id) .. "' failed: " .. tostring(result))
                 return false
             end
-
             return result
         else
-            print("[NativeShop] Item '" .. tostring(item.Id) .. "' has an invalid Action type. Expected 'CLOSE', 'BACK', 'ROOT', or a function.")
+            print("[NativeShop] Item '" .. tostring(item.Id) .. "' has an invalid Action type.")
             return nil
         end
     end
 
-    if item.IsSubmenu then
+    if item.HasNavigation then
         self:_saveStateToHistory(index)
         local result = self:_setMenuState(item.Id, self.currentRootId)
-        TriggerEvent("native_shop:menu_navigated", { RootId = self.currentRootId, Menu = self:getCurrentMenu(), Index = result, Direction = "forward" })
+        TriggerEvent("native_shop:menu_navigated", {
+            RootId = self.currentRootId,
+            Menu = self:getCurrentMenu(),
+            Index = result,
+            Direction = "forward"
+        })
         return result
     end
 
@@ -498,22 +589,21 @@ end
 
 --- Navigates back by popping the last state from the history stack.
 --- Checks local history first, then checks the rootStack for previous menu trees.
----@param self ShopNavigator
 ---@return number|nil The focus index to restore, or nil if at the root.
 function ShopNavigator:navigateBack()
     -- 1. Try to go back within the current menu tree
     if #self.history > 0 then
         local previousState = table.remove(self.history)
-        if previousState.Type == "dynamic" then
-            self.dynamicMenuContext = previousState.Context
-            self.currentItems = previousState.Context.Items or {}
-        else
-            self.dynamicMenuContext = nil
-            self.currentMenuId = previousState.MenuId
-            self.currentPageIndex = previousState.PageIndex or 1
-            self:_rebuildCurrentItems()
-        end
-        TriggerEvent("native_shop:menu_navigated", { RootId = self.currentRootId, Menu = self:getCurrentMenu(), Index = previousState.FocusIndex, Direction = "back" })
+        self.currentMenuId = previousState.MenuId
+        self.currentPageIndex = previousState.PageIndex or 1
+        self:_rebuildCurrentItems()
+
+        TriggerEvent("native_shop:menu_navigated", {
+            RootId = self.currentRootId,
+            Menu = self:getCurrentMenu(),
+            Index = previousState.FocusIndex,
+            Direction = "back"
+        })
         return previousState.FocusIndex
     end
 
@@ -525,25 +615,27 @@ function ShopNavigator:navigateBack()
         self.currentMenuId = rootState.MenuId
         self.currentPageIndex = rootState.PageIndex
         self.history = rootState.History
-        self.dynamicMenuContext = rootState.DynamicContext
 
         self:_rebuildCurrentItems()
-        TriggerEvent("native_shop:menu_navigated", { RootId = self.currentRootId, Menu = self:getCurrentMenu(), Index = rootState.FocusIndex, Direction = "back" })
+        TriggerEvent("native_shop:menu_navigated", {
+            RootId = self.currentRootId,
+            Menu = self:getCurrentMenu(),
+            Index = rootState.FocusIndex,
+            Direction = "back"
+        })
         return rootState.FocusIndex
     end
 
     -- 3. No history left, we are at the top level
-    self.dynamicMenuContext = nil
     return nil
 end
 
 --- Jumps to a specific tab by its 1-based index.
----@param self ShopNavigator
 ---@param newPageIndex number The 1-based index of the tab to switch to.
 ---@return boolean True if the tab change was successful.
 function ShopNavigator:navigateTabs(newPageIndex)
     local menu = self:_getRawCurrentMenu()
-    if not menu or self.dynamicMenuContext or not menu.Tabs or #menu.Tabs < 1 then
+    if not menu or not menu.Tabs or #menu.Tabs < 1 then
         return false
     end
     if newPageIndex < 1 or newPageIndex > #menu.Tabs or newPageIndex == self.currentPageIndex then
@@ -551,16 +643,17 @@ function ShopNavigator:navigateTabs(newPageIndex)
     end
     self.currentPageIndex = newPageIndex
     self:_rebuildCurrentItems()
-    TriggerEvent("native_shop:page_navigated", { RootId = self.currentRootId, Menu = menu, NewIndex = self.currentPageIndex })
+    TriggerEvent("native_shop:page_navigated", {
+        RootId = self.currentRootId,
+        Menu = menu,
+        NewIndex = self.currentPageIndex
+    })
     return true
 end
 
 --- Gets all information required to render a tab bar for the current menu.
----@param self ShopNavigator
 ---@return table|nil A table like `{ CurrentIndex, CurrentTab, Tabs }`, or nil.
 function ShopNavigator:getTabInfo()
-    if self.dynamicMenuContext then return nil end
-
     local menu = self:_getRawCurrentMenu()
 
     if menu and menu.Tabs and #menu.Tabs > 0 then
@@ -575,7 +668,6 @@ function ShopNavigator:getTabInfo()
 end
 
 --- Gets the count of items in a menu, with options to filter.
----@param self ShopNavigator
 ---@param menuId string|nil The ID of the menu. Defaults to current menu.
 ---@param rootId string|nil The root ID of the tree to search in. Defaults to the current root.
 ---@param options table|nil Options table: { IncludeHidden = false }.
@@ -612,26 +704,22 @@ function ShopNavigator:getItemCount(menuId, rootId, options)
 end
 
 --- Gets the currently displayed items for the UI to render.
----@param self ShopNavigator
 ---@return table An array of item objects.
 function ShopNavigator:getCurrentItems()
     return self.currentItems
 end
 
 --- Gets a single item's data by its 1-based index from the current item list.
----@param self ShopNavigator
 ---@param index number The index of the item to retrieve.
 ---@return table|nil The item object, or nil if out of bounds.
 function ShopNavigator:getItemByIndex(index)
     if self.currentItems and index and index >= 1 and index <= #self.currentItems then
         return self.currentItems[index]
     end
-
     return nil
 end
 
 --- Gets a single item's data by its unique ID from the current item list.
----@param self ShopNavigator
 ---@param id string The ID of the item to retrieve.
 ---@return table|nil The item object, or nil if not found.
 function ShopNavigator:getItemById(id)
@@ -641,12 +729,10 @@ function ShopNavigator:getItemById(id)
             return item
         end
     end
-
     return nil
 end
 
 --- Gets the current menu object, including a calculated `Disabled` state.
----@param self ShopNavigator
 ---@return table|nil The current menu object.
 function ShopNavigator:getCurrentMenu()
     local menu = self:_getRawCurrentMenu()
@@ -661,7 +747,6 @@ function ShopNavigator:getCurrentMenu()
 end
 
 --- Gets the root menu object for the currently active menu tree.
----@param self ShopNavigator
 ---@return table|nil The root menu object.
 function ShopNavigator:getRootMenu()
     if self.currentRootId then
@@ -672,14 +757,12 @@ function ShopNavigator:getRootMenu()
 end
 
 --- Gets the current root menu ID.
---- @param self ShopNavigator
 --- @return string|nil The current root menu ID, or nil if none is active.
 function ShopNavigator:getRootMenuId()
     return self.currentRootId
 end
 
 --- (Utility) Finds the Root ID for any given Menu ID.
----@param self ShopNavigator
 ---@param menuId string|nil The menu ID to find the root for.
 ---@return string|nil The Root ID, or nil if not found.
 function ShopNavigator:getRootIdForMenu(menuId)
@@ -689,11 +772,14 @@ function ShopNavigator:getRootIdForMenu(menuId)
     for rootId, menuTree in pairs(self.menuMap) do
         if menuTree[menuId] then return rootId end
     end
+    -- Fallback: Check if the menuId IS the root ID of a generator (not yet mapped)
+    if self.generators[menuId] then
+        return menuId
+    end
     return nil
 end
 
 --- (Utility) Finds the Parent ID for any given Menu ID.
----@param self ShopNavigator
 ---@param menuId string|nil The menu ID to find the parent for.
 ---@return string|nil The Parent ID, or nil if not found.
 function ShopNavigator:getParentIdForMenu(menuId)
@@ -708,7 +794,6 @@ function ShopNavigator:getParentIdForMenu(menuId)
 end
 
 --- (Utility) Gets the ID of the menu that linked to the current menu tree via a LinkMenuId item.
----@param self ShopNavigator
 ---@return string|nil The Menu ID that initiated the link, or nil if the current menu was not reached via a link.
 function ShopNavigator:getLinkedFromMenuId()
     if #self.rootStack > 0 then
@@ -718,60 +803,65 @@ function ShopNavigator:getLinkedFromMenuId()
     return nil
 end
 
--- Gets the title of the current view, which is either the active tab's title
--- or the current or root menu's title if no tabs are present.
----@param self ShopNavigator
----@return string|nil The title of the current view, or nil if no menu is active
-function ShopNavigator:getCurrentTitle()
+--- Gets the unique entry data for the current view's title.
+---@return table|nil Table containing { Id, Text, Type }, or nil.
+function ShopNavigator:getCurrentTitleEntry()
     local root = self:getRootMenu()
     if not root then return nil end
 
     local menu = self:_getRawCurrentMenu()
     if not menu then return nil end
 
-    local tabTitle = nil
-    local menuTitle = menu.Title
-    local rootTitle = root.Title
+    local text = menu.Title or root.Title
+    local baseId = menu.Id
+    local type = "MENU_TITLE"
 
-    -- Check if the menu has an active set of tabs
+    -- Check tabs
     if menu.Tabs and #menu.Tabs > 0 then
         local activeTab = menu.Tabs[self.currentPageIndex]
         if activeTab then
-            -- If on a tab, use the tab's title
-            tabTitle = activeTab.Title
+            text = activeTab.Title or text -- Use tab title, fallback to menu title
+            baseId = activeTab.Id
+            type = "PAGE_TITLE"
         end
     end
 
-    -- If not on a tab, return the menu's own title
-    return tabTitle or menuTitle or rootTitle
+    return {
+        Id = self:_getUniqueId(baseId),
+        Text = text,
+        Type = type
+    }
 end
 
---- Gets the subtitle of the current view, which is either the active tab's subtitle
---- or the current menu's subtitle if no tabs are present.
----@param self ShopNavigator
----@return string|nil The subtitle of the current view, or nil if no menu is active.
-function ShopNavigator:getCurrentSubtitle()
+--- Gets the unique entry data for the current view's subtitle.
+---@return table|nil Table containing { Id, Text, Type }, or nil.
+function ShopNavigator:getCurrentSubtitleEntry()
     local root = self:getRootMenu()
     if not root then return nil end
 
     local menu = self:_getRawCurrentMenu()
     if not menu then return nil end
 
-    local tabSubtitle = nil
-    local menuSubtitle = menu.Subtitle or menu.Label
-    local rootSubtitle = root.Subtitle or root.Label
+    -- Priority: Tab Subtitle -> Tab Label -> Menu Subtitle -> Menu Label -> Root Subtitle -> Root Label
+    local text = menu.Subtitle or menu.Label or root.Subtitle or root.Label
+    local baseId = menu.Id
+    local type = "MENU_SUBTITLE"
 
-    -- Check if the menu has an active set of tabs
+    -- Check tabs
     if menu.Tabs and #menu.Tabs > 0 then
         local activeTab = menu.Tabs[self.currentPageIndex]
         if activeTab then
-            -- If on a tab, use the tab's subtitle
-            tabSubtitle = activeTab.Subtitle or activeTab.Label
+            text = activeTab.Subtitle or activeTab.Label or text
+            baseId = activeTab.Id
+            type = "PAGE_SUBTITLE"
         end
     end
 
-    -- If not on a tab, return the menu's own subtitle
-    return tabSubtitle or menuSubtitle or rootSubtitle
+    return {
+        Id = self:_getUniqueId(baseId),
+        Text = text,
+        Type = type
+    }
 end
 
 _G.ShopNavigator = ShopNavigator

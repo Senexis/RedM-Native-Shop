@@ -58,6 +58,9 @@ local function getFastTravelItems(filter)
                     RightText = string.format("%.1fm", distance),
                     ItemDescription = description,
                 },
+                Action = function(item)
+                    PostFeedTicker(string.format("Fast travelling to %s...", item.Label))
+                end
             })
         end
     end
@@ -68,16 +71,6 @@ local function getFastTravelItems(filter)
 
     return items
 end
-
-AddEventHandler("native_shop:item_selected", function(event)
-    if ShopNavigator:getRootMenuId() ~= MENU_ID then
-        return
-    end
-
-    if tostring(event.ID):find("FAST_TRAVEL_") then
-        PostFeedTicker(string.format("Selected: '%s'", event.ID))
-    end
-end)
 
 ShopNavigator:register(data, { FastTravelItems = getFastTravelItems })
 

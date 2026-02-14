@@ -165,36 +165,26 @@ function ShopUI.CreateTextEntry(type, id, text)
 end
 
 function ShopUI.UpdateTitle()
+    local entry = ShopNavigator:getCurrentTitleEntry()
     local hash = ""
 
-    local tabs = ShopNavigator:getTabInfo()
-    local menu = ShopNavigator:getCurrentMenu()
-    local title = ShopNavigator:getCurrentTitle()
-
-    if tabs and tabs.CurrentTab then
-        hash = ShopUI.CreateTextEntry("PAGE_TITLE", tabs.CurrentTab.Id, title)
-    elseif menu then
-        hash = ShopUI.CreateTextEntry("MENU_TITLE", menu.Id, title)
+    if entry and entry.Text then
+        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text)
     end
 
     if DatabindingIsEntryValid(ShopUI.bindings.dshTitle) == 1 then
         DatabindingWriteDataHashString(ShopUI.bindings.dshTitle, hash)
     else
-        ShopUI.bindings.dshTitle = DatabindingAddDataHash(ShopUI.bindings.dshTitle, "Title", hash)
+        ShopUI.bindings.dshTitle = DatabindingAddDataHash(ShopUI.bindings.dscMain, "Title", hash)
     end
 end
 
 function ShopUI.UpdateSubheader()
+    local entry = ShopNavigator:getCurrentSubtitleEntry()
     local hash = ""
 
-    local tabs = ShopNavigator:getTabInfo()
-    local menu = ShopNavigator:getCurrentMenu()
-    local subtitle = ShopNavigator:getCurrentSubtitle()
-
-    if tabs and tabs.CurrentTab then
-        hash = ShopUI.CreateTextEntry("PAGE_SUBTITLE", tabs.CurrentTab.Id, subtitle)
-    elseif menu then
-        hash = ShopUI.CreateTextEntry("MENU_SUBTITLE", menu.Id, subtitle)
+    if entry and entry.Text then
+        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text)
     end
 
     if DatabindingIsEntryValid(ShopUI.bindings.dshSubheader) == 1 then
@@ -1518,7 +1508,7 @@ function ShopUI.Builder.BuildItem(index, item)
         return false
     end
 
-    if item.IsSubmenu or item.Context then
+    if item.HasNavigation then
         DatabindingAddDataInt(entry, "MenuIndex", index + 1)
     end
 
@@ -1910,7 +1900,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
 
     -- Enter | A
     -- Select is always visible for submenu/context items
-    if selectData.Visible == true or item.IsSubmenu or item.Context then
+    if selectData.Visible == true or item.HasNavigation then
         local label = selectData.Label or GetStringFromHashKey("IB_SELECT")
         local disabled = selectData.Disabled == true
         local held = selectData.Held == true
