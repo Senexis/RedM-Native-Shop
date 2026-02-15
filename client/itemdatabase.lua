@@ -1,6 +1,24 @@
 -- Item database utility functions for accessing game data
 -- Based on research by aaron1a12: https://github.com/aaron1a12/wild/
 
+---Gets general information for an item
+---@param item number The item hash
+---@return table info Item information
+function GetItemInfo(item)
+    local struct = DataView.ArrayBuffer(256)
+    Citizen.InvokeNative(0xFE90ABBCBFDC13B2, item, struct:Buffer()) -- ITEMDATABASE_FILLOUT_ITEM_INFO
+
+    return {
+        key = struct:GetInt32(0),
+        category = struct:GetInt32(8),
+        group = struct:GetInt32(16),
+        flags = struct:GetInt32(24),
+        model = struct:GetInt32(32),
+        priorityaccess = struct:GetInt32(40),
+        bundle = struct:GetInt32(48), -- Guesed name, actually 0x093520C7
+    }
+end
+
 ---Gets tag IDs for an item with optional filtering by tag type
 ---@param item number The item hash
 ---@param filter number|nil Optional tag type filter (0 or nil for all tags)
@@ -125,6 +143,6 @@ end
 ---@param stringPtr number Pointer to string
 ---@return string content The string content
 function ReadString(stringPtr)
-    Citizen.InvokeNative(0xDFFC15AA63D04AAB, stringPtr) -- _SET_LAUNCH_PARAM_STRING
+    Citizen.InvokeNative(0xDFFC15AA63D04AAB, stringPtr)                       -- _SET_LAUNCH_PARAM_STRING
     return Citizen.InvokeNative(0xC59AB6A04333C502, Citizen.ResultAsString()) -- _GET_LAUNCH_PARAM_STRING
 end
