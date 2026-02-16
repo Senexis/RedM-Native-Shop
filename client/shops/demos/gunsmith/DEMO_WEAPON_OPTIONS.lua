@@ -64,8 +64,12 @@ local function getWeaponStats(weapon, component)
         end
     end
 
-    -- TODO: Iterate through all attached components on the weapon
     local currentBonus = { damage = 0, accuracy = 0, range = 0 }
+
+    -- TODO: Iterate through all equipped components on the weapon
+    -- You'll need a list of all applied components, and then do the same as below for each item
+    -- You should add each effect value to the currentBonus
+
     local potentialBonus = { damage = 0, accuracy = 0, range = 0 }
 
     -- Process preview component effects if a component is provided
