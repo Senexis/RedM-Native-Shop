@@ -1,3 +1,154 @@
+-- Some things you would need to implement:
+-- 1. Getting the weapon's degradation
+-- 2. Getting the weapon's current stats with components applied
+local function getWeaponStats(weapon, component)
+    local weaponItem = ItemDatabase.new(weapon)
+    if not weaponItem then return end
+
+    local componentItem = nil
+    if component ~= 0 then
+        componentItem = ItemDatabase.new(component)
+    end
+
+    -- Base stats
+    local baseStats = {
+        damage = 0,
+        range = 0,
+        fireRate = 0,
+        reload = 0,
+        accuracy = 0
+    }
+
+    -- Get weapon familiarity
+    local familiarityMult = 100
+    local struct = DataView.ArrayBuffer(16)
+    struct:SetInt32(0, `skill`)
+    struct:SetInt32(8, GetWeaponStatId(weapon))
+
+    if Citizen.InvokeNative(0xC48FE1971C9743FF, struct:Buffer()) == 1 then
+        familiarityMult = Citizen.InvokeNative(0xD7AE6C9C9C6AC54D, struct:Buffer(), Citizen.ResultAsFloat())
+    end
+
+    local weaponEffects = weaponItem:GetStats()
+    for key, effect in pairs(weaponEffects) do
+        if key == "weaponDamage" then
+            baseStats.damage += effect.Value
+        elseif key == "weaponRange" then
+            baseStats.range += effect.Value
+        elseif key == "weaponFireRate" then
+            baseStats.fireRate += effect.Value
+        elseif key == "weaponReload" then
+            baseStats.reload += effect.Value
+        elseif key == "weaponAccuracy" then
+            baseStats.accuracy += effect.Value
+        end
+
+        -- Applies a skill bonus based on the weapon familiarity
+        if key == "familiarityRange" then
+            baseStats.range += math.floor(effect.Value * (familiarityMult / 100))
+        elseif key == "familiarityReload" then
+            baseStats.reload += math.floor(effect.Value * (familiarityMult / 100))
+        elseif key == "familiarityAccuracy" then
+            baseStats.accuracy += math.floor(effect.Value * (familiarityMult / 100))
+        end
+    end
+
+    local currentBonus = { damage = 0, accuracy = 0, range = 0 }
+
+    -- TODO: Iterate through all equipped components on the weapon
+    -- You'll need a list of all applied components, and then do the same as below for each item
+    -- You should add each effect value to the currentBonus
+
+    local potentialBonus = { damage = 0, accuracy = 0, range = 0 }
+
+    -- Process preview component effects if a component is provided
+    if componentItem then
+        local componentEffects = componentItem:GetStats()
+
+        if componentItem:IsInGroup("AMMO") then
+            for key, effect in pairs(componentEffects) do
+                if key == "statModifierDamage" then
+                    baseStats.damage += effect.Value
+                elseif key == "statModifierAccuracy" then
+                    baseStats.accuracy += effect.Value
+                elseif key == "statModifierRange" then
+                    baseStats.range += effect.Value
+                end
+            end
+        else
+            for key, effect in pairs(componentEffects) do
+                if key == "statModifierDamage" then
+                    potentialBonus.damage += effect.Value
+                elseif key == "statModifierAccuracy" then
+                    potentialBonus.accuracy += effect.Value
+                elseif key == "statModifierRange" then
+                    potentialBonus.range += effect.Value
+                end
+            end
+        end
+    end
+
+    local finalStat = {
+        damage = baseStats.damage + currentBonus.damage,
+        range = baseStats.range + currentBonus.range,
+        accuracy = baseStats.accuracy + currentBonus.accuracy,
+        fireRate = baseStats.fireRate,
+        reload = baseStats.reload
+    }
+
+    local projectedStat = {
+        damage = baseStats.damage + potentialBonus.damage,
+        range = baseStats.range + potentialBonus.range,
+        accuracy = baseStats.accuracy + potentialBonus.accuracy
+    }
+
+    local maxDisplay = {
+        damage = math.max(finalStat.damage, projectedStat.damage),
+        range = math.max(finalStat.range, projectedStat.range),
+        accuracy = math.max(finalStat.accuracy, projectedStat.accuracy)
+    }
+
+    -- TODO: Get this weapon's degradation
+    local degradation = 0
+    local degradationPenalty = math.ceil(degradation * 10.0)
+
+    -- Apply penalty to current actuals
+    finalStat.damage = finalStat.damage - degradationPenalty
+    finalStat.fireRate = finalStat.fireRate - degradationPenalty
+    finalStat.reload = finalStat.reload - degradationPenalty
+
+    -- Apply penalty to projected stats
+    projectedStat.damage = projectedStat.damage - degradationPenalty
+
+    return {
+        Power = {
+            Value = projectedStat.damage,
+            Diff = maxDisplay.damage,
+            New = finalStat.damage,
+        },
+        Range = {
+            Value = projectedStat.range,
+            Diff = maxDisplay.range,
+            New = finalStat.range,
+        },
+        Accuracy = {
+            Value = projectedStat.accuracy,
+            Diff = maxDisplay.accuracy,
+            New = finalStat.accuracy,
+        },
+        FireRate = {
+            Value = finalStat.fireRate,
+            Diff = baseStats.fireRate,
+            New = finalStat.fireRate,
+        },
+        Reload = {
+            Value = finalStat.reload,
+            Diff = baseStats.reload,
+            New = finalStat.reload,
+        },
+    }
+end
+
 -- Used for the main list of weapons in the Gunsmith
 local MODIFIABLE_WEAPONS <const> = {
     { Id = "WEAPON_BOW_IMPROVED",             Type = "BOW" },
@@ -616,5 +767,6 @@ local WEAPON_COMPONENTS <const> = {
     }
 }
 
+_G.GetWeaponStats = getWeaponStats
 _G.MODIFIABLE_WEAPONS = MODIFIABLE_WEAPONS
 _G.WEAPON_COMPONENTS = WEAPON_COMPONENTS

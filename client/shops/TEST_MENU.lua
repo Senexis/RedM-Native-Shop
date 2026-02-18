@@ -38,21 +38,58 @@ local data = {
                     }
                 },
                 {
-                    Id = "DEMO_BASIC_SHOP",
-                    Label = "Basic Shop",
-                    LinkMenuId = "DEMO_BASIC_SHOP",
-                    LinkPageId = nil,
+                    Id = "DEMO_SHOPS",
+                    Label = "Shops",
                     Data = {
-                        ItemDescription = "A basic shop menu showcasing quantity selection, pricing, and stock management.",
-                    }
-                },
-                {
-                    Id = "DEMO_GUNSMITH",
-                    Label = "Gunsmith",
-                    LinkMenuId = "DEMO_GUNSMITH",
-                    LinkPageId = nil,
-                    Data = {
-                        ItemDescription = "A gunsmith menu showcasing an example gunsmith setup.",
+                        ItemDescription = "A demo shop menu showcasing item categories, submenus, and a purchase flow.",
+                    },
+                    Items = {
+                        {
+                            Id = "DEMO_BASIC_SHOP",
+                            Label = "Basic Shop",
+                            LinkMenuId = "DEMO_BASIC_SHOP",
+                            LinkPageId = nil,
+                            Data = {
+                                ItemDescription = "A basic shop menu showcasing quantity selection, pricing, and stock management.",
+                            }
+                        },
+                        {
+                            Id = "DEMO_GUNSMITH",
+                            Label = "Gunsmith",
+                            LinkMenuId = "DEMO_GUNSMITH",
+                            LinkPageId = nil,
+                            Data = {
+                                ItemDescription = "A gunsmith menu showcasing an example gunsmith setup.",
+                            }
+                        },
+                        {
+                            Id = "DEMO_CLOTHING",
+                            Type = "STEPPER",
+                            Label = "Wardrobe",
+                            LinkMenuId = "DEMO_CLOTHING",
+                            LinkPageId = nil,
+                            LinkData = function(item)
+                                if not item or not item.Data then return end
+                                local gender = item.Data.StepperValue or 1
+                                return { Gender = gender }
+                            end,
+                            Data = {
+                                ItemDescription = "A demo clothing menu showcasing dynamic generation of items based on the selected gender.",
+                                StepperOptions = { "Male", "Female" },
+                                StepperValue = 1,
+                                StepperVisible = true,
+                                StepperTextureVisible = false,
+                            }
+                        },
+                        {
+                            Id = "DEMO_MOONSHINE",
+                            Label = "Moonshine",
+                            LinkMenuId = "DEMO_MOONSHINE",
+                            LinkPageId = nil,
+                            Data = {
+                                ItemDescription = "A demo moonshine business menu aiming to recreate the moonshine production menus.",
+                            }
+                        }
                     }
                 },
                 {
@@ -62,15 +99,6 @@ local data = {
                     LinkPageId = nil,
                     Data = {
                         ItemDescription = "A demo fast travel menu showcasing dynamic items and filtering. Move to see the distances update in real time.",
-                    }
-                },
-                {
-                    Id = "DEMO_MOONSHINE",
-                    Label = "Moonshine",
-                    LinkMenuId = "DEMO_MOONSHINE",
-                    LinkPageId = nil,
-                    Data = {
-                        ItemDescription = "A demo moonshine business menu aiming to recreate the moonshine production menus.",
                     }
                 },
                 {

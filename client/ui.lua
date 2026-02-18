@@ -47,6 +47,21 @@ local promptTypes = {
     "Back",
 }
 
+local function deepMerge(target, source)
+    for k, v in pairs(source) do
+        if type(v) == "table" then
+            if type(target[k]) == "table" then
+                deepMerge(target[k], v)
+            else
+                target[k] = deepMerge({}, v)
+            end
+        elseif v ~= nil then
+            target[k] = v
+        end
+    end
+    return target
+end
+
 ShopUI = {
     Builder = {},
     Events = {},
@@ -162,6 +177,72 @@ function ShopUI.CreateTextEntry(type, id, text)
     end
 
     return key
+end
+
+function ShopUI.CreateSwatchForItem(item, index)
+    if item.Type ~= "SWATCH" then return item end
+
+    if type(item.Auto) ~= "string" and item.Auto ~= true then
+        return item
+    end
+
+    local itemKey = type(item.Auto) == "string" and item.Auto or item.Id
+    local itemData = ItemDatabase.new(itemKey)
+    if not itemData then
+        error(string.format("Invalid item ID %s", itemKey))
+    end
+
+    if index < 0 then index = 39 end
+    if index >= 39 then index = 0 end
+
+    local swatchTxd, swatchTxn = itemData:GetSwatchTexture(index)
+
+    return deepMerge(item, {
+        Data = {
+            TextureDictionary = swatchTxd,
+            Texture = swatchTxn,
+        }
+    })
+end
+
+function ShopUI.ProcessAutoItem(item)
+    if type(item.Auto) ~= "string" and item.Auto ~= true then
+        return item
+    end
+
+    local itemKey = type(item.Auto) == "string" and item.Auto or item.Id
+    local itemData = ItemDatabase.new(itemKey)
+    if not itemData then
+        error(string.format("Invalid item ID %s", itemKey))
+    end
+
+    local mergeItem = {
+        Data = {
+            RpgEffects = nil,
+            Weather = nil
+        }
+    }
+
+    if itemData:GetLabelHash(true) ~= 0 then
+        mergeItem.Label = itemData:GetLabel(true)
+    end
+
+    if itemData:GetDescriptionHash(true) ~= 0 then
+        mergeItem.Data.ItemDescription = itemData:GetDescription(true)
+    end
+
+    mergeItem.Data.RpgEffects = itemData:GetUiRpgStats()
+
+    if not itemData:IsOutfit() and itemData:GetWarmth() then
+        mergeItem.Data.Weather = {
+            Visible = true,
+            Enabled = true,
+            Opacity = 1,
+            Warmth = itemData:GetWarmth(),
+        }
+    end
+
+    return deepMerge(item, mergeItem)
 end
 
 function ShopUI.UpdateTitle()
@@ -285,14 +366,59 @@ function ShopUI.Open(id)
     ShopData.state.shuttingDown = false
 
     if ShopData.state.hiddenMenu == id then
-        ShopNavigator:restore()
+        local result = ShopNavigator:restore()
+        if not result then
+            print("[NativeShop] Failed to restore menu: " .. tostring(id))
+            return
+        end
+
         TriggerEvent("native_shop:showing", id)
     else
-        ShopNavigator:open(id)
+        local result = ShopNavigator:open(id)
+        if not result then
+            print("[NativeShop] Failed to open menu: " .. tostring(id))
+            return
+        end
+
         TriggerEvent("native_shop:opening", id)
     end
 
     ShopData.state.hiddenMenu = nil
+    ShopUI.OnOpen()
+end
+
+function ShopUI.OnOpen()
+    local swatchLoaded = false
+    while swatchLoaded ~= 1 do
+        swatchLoaded = CreateSwatchTextureDict(40)
+        Citizen.Wait(0)
+    end
+
+    local TEXT_BLOCKS <const> = {
+        "shop",
+        "satch",
+        "ward",
+    }
+
+    for _, block in pairs(TEXT_BLOCKS) do
+        TextBlockRequest(block)
+        while TextBlockIsLoaded(block) ~= 1 do
+            Citizen.Wait(0)
+        end
+    end
+
+    local TEXTURE_DICTS <const> = {
+        "swatches_gunsmith_mp",
+        "swatches_stable_mp",
+    }
+
+    for _, dict in pairs(TEXTURE_DICTS) do
+        RequestStreamedTxd(dict, false)
+        while HasStreamedTxdLoaded(dict) ~= 1 do
+            Citizen.Wait(0)
+        end
+    end
+
     LaunchUiappWithEntry("shop_menu", "generic_shop")
 end
 
@@ -346,7 +472,10 @@ function ShopUI.OnShutdown()
     end
 
     -- Close the UI app
-    return CloseUiapp("shop_menu")
+    CloseUiapp("shop_menu")
+
+    -- Clear the swatch texture dictionary
+    DestroySwatchTextureDict()
 end
 
 function ShopUI.DisableItem(id)
@@ -395,15 +524,7 @@ function ShopUI.RefreshAllItems()
     local currentItems = ShopNavigator:getCurrentItems()
 
     for _, item in pairs(currentItems) do
-        local entry = ShopUI.state.currentItemEntries[item.Id]
-        local currentItem = ShopNavigator:getItemById(item.Id)
-
-        if currentItem and DatabindingIsEntryValid(entry) == 1 then
-            local result = ShopUI.Builder.FillItem(entry, currentItem)
-            if result == false then
-                print("[NativeShop] Error: Failed to refresh item: " .. tostring(currentItem.Id))
-            end
-        end
+        ShopUI.RefreshItem(item.Id)
     end
 end
 
@@ -1500,6 +1621,13 @@ function ShopUI.Builder.IsIndexInRange(index, start, range, total)
 end
 
 function ShopUI.Builder.BuildItem(index, item)
+    local ok, swatchResult = pcall(ShopUI.CreateSwatchForItem, item, index)
+    if ok then
+        item = swatchResult
+    else
+        print("[NativeShop] Failed to create swatch for item ", item.Id, " with error: ", swatchResult)
+    end
+
     local entry = DatabindingAddDataContainer(ShopUI.bindings.dscItemListEntries, item.Id)
     local result = ShopUI.Builder.FillItem(entry, item)
 
@@ -1517,6 +1645,13 @@ function ShopUI.Builder.BuildItem(index, item)
 end
 
 function ShopUI.Builder.FillItem(entry, item)
+    local ok, processResult = pcall(ShopUI.ProcessAutoItem, item)
+    if ok then
+        item = processResult
+    else
+        print("[NativeShop] Failed to process auto item for item ", item.Id, " with error: ", processResult)
+    end
+
     local callbacks = {
         BUSINESS = ShopUI.Builder.FillBusinessItem,
         COUPON = ShopUI.Builder.FillCouponItem,
@@ -1548,6 +1683,8 @@ function ShopUI.Builder.FillItem(entry, item)
     else
         if item.Type == "SWATCH" then
             print("[NativeShop] Warning: SWATCH item type is only supported in ITEM_GRID scene.")
+        elseif item.Type and item.Type ~= "" then
+            print("[NativeShop] Warning: Invalid item type " .. item.Type .. ", using TEXT as fallback.")
         end
 
         -- Otherwise use the generic text item builder
@@ -1659,13 +1796,15 @@ function ShopUI.Builder.FillPaletteItem(entry, item)
     local data = item.Data or {}
 
     local id = item.Id
-    local label = item.Label or id
-    local labelKey = ShopUI.CreateTextEntry("PALETTE", id, label)
+    local label = item.LabelHash
+    if not label or label == 0 then
+        label = ShopUI.CreateTextEntry("PALETTE", id, item.Label or id)
+    end
 
     DatabindingAddDataString(entry, "uiItemID", id)
     DatabindingAddDataString(entry, "uiItemType", "PALETTE")
     DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_PALETTE_LIST_ITEM")
-    DatabindingAddDataHash(entry, "uiItemLabel", labelKey)
+    DatabindingAddDataHash(entry, "uiItemLabel", label)
     DatabindingAddDataBool(entry, "itemEnabled", not ShopUI.IsItemDisabled(item))
 
     DatabindingAddDataBool(entry, "equipped", data.Equipped or false)
@@ -1696,13 +1835,15 @@ function ShopUI.Builder.FillSaddleItem(entry, item)
     local data = item.Data or {}
 
     local id = item.Id
-    local label = item.Label or id
-    local labelKey = ShopUI.CreateTextEntry("SADDLE", id, label)
+    local label = item.LabelHash
+    if not label or label == 0 then
+        label = ShopUI.CreateTextEntry("SADDLE", id, item.Label or id)
+    end
 
     DatabindingAddDataString(entry, "uiItemID", id)
     DatabindingAddDataString(entry, "uiItemType", "SADDLE")
     DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_SADDLE_LIST_ITEM")
-    DatabindingAddDataHash(entry, "uiItemLabel", labelKey)
+    DatabindingAddDataHash(entry, "uiItemLabel", label)
     DatabindingAddDataBool(entry, "itemEnabled", not ShopUI.IsItemDisabled(item))
 
     DatabindingAddDataHash(entry, "backTexture", data.BackTexture or 0)
@@ -1762,10 +1903,13 @@ function ShopUI.Builder.FillStepperItem(entry, item)
 
     -- Stepper setup
     local options = data.StepperOptions or {}
-    local value = data.StepperValue or 0
+    local value = data.StepperValue or 1
 
     for optionIndex, optionText in ipairs(options) do
-        ShopUI.CreateTextEntry(id, optionIndex, optionText)
+        local optionKey = string.format("NSUI_%s_%s", id, optionIndex)
+        if DoesTextLabelExist(optionKey) ~= 1 then
+            AddTextEntry(optionKey, optionText)
+        end
     end
 
     DatabindingAddDataInt(entry, "uiItemStepperMax", #options)
@@ -2163,11 +2307,19 @@ end
 
 function ShopUI.Scene.SetItemDescriptionFromItem(item)
     local itemData = item.Data or {}
-    local description = itemData.ItemDescription
 
-    if description and type(description) == "string" and description ~= "" then
+    local hash = itemData.ItemDescriptionHash
+    if hash and hash ~= 0 then
         local enabled = not ShopUI.IsItemDisabled(item)
-        local descriptionKey = ShopUI.CreateTextEntry("ITEM_DESC", item.Id, description)
+
+        ShopUI.Scene.SetItemDescription(true, enabled, hash)
+        return true
+    end
+
+    local text = itemData.ItemDescription
+    if text and type(text) == "string" and text ~= "" then
+        local enabled = not ShopUI.IsItemDisabled(item)
+        local descriptionKey = ShopUI.CreateTextEntry("ITEM_DESC", item.Id, text)
 
         ShopUI.Scene.SetItemDescription(true, enabled, descriptionKey)
         return true
@@ -2183,8 +2335,14 @@ end
 
 function ShopUI.Scene.SetInfoBoxNameFromItem(item)
     local itemData = item.Data or {}
-    local text = itemData.InfoBoxName or ""
 
+    local hash = itemData.InfoBoxNameHash
+    if hash and hash ~= 0 then
+        ShopUI.Scene.SetInfoBoxName(hash)
+        return true
+    end
+
+    local text = itemData.InfoBoxName or ""
     if text and type(text) == "string" and text ~= "" then
         local labelKey = ShopUI.CreateTextEntry("BOX_NAME", item.Id, text)
 
@@ -2460,11 +2618,11 @@ function ShopUI.Scene.SetHorseStatsFromItem(item)
     local data = itemData.HorseStats
 
     if data and type(data) == "table" then
-        local handlingKey = ShopUI.CreateTextEntry("HORSE_HANDLING", item.Id, data.HandlingText or "")
-        local typeKey = ShopUI.CreateTextEntry("HORSE_TYPE", item.Id, data.TypeText or "")
-        local breedKey = ShopUI.CreateTextEntry("HORSE_BREED", item.Id, data.BreedText or "")
-        local coatKey = ShopUI.CreateTextEntry("HORSE_COAT", item.Id, data.CoatText or "")
-        local genderKey = ShopUI.CreateTextEntry("HORSE_GENDER", item.Id, data.GenderText or "")
+        local handlingKey = data.HandlingTextHash or ShopUI.CreateTextEntry("HORSE_HANDLING", item.Id, data.HandlingText or "")
+        local typeKey = data.TypeTextHash or ShopUI.CreateTextEntry("HORSE_TYPE", item.Id, data.TypeText or "")
+        local breedKey = data.BreedTextHash or ShopUI.CreateTextEntry("HORSE_BREED", item.Id, data.BreedText or "")
+        local coatKey = data.CoatTextHash or ShopUI.CreateTextEntry("HORSE_COAT", item.Id, data.CoatText or "")
+        local genderKey = data.GenderTextHash or ShopUI.CreateTextEntry("HORSE_GENDER", item.Id, data.GenderText or "")
 
         ShopUI.Scene.SetHorseStats(
             data.Primary == true,
@@ -2500,8 +2658,8 @@ function ShopUI.Scene.SetHorseInfoBoxFromItem(item)
     local data = itemData.HorseInfoBox
 
     if data and type(data) == "table" then
-        local labelKey = ShopUI.CreateTextEntry("HORSE_INFOBOX_LABEL", item.Id, data.Text or "")
-        local tipKey = ShopUI.CreateTextEntry("HORSE_INFOBOX_TIP", item.Id, data.TipText or "")
+        local labelKey = data.TextHash or ShopUI.CreateTextEntry("HORSE_INFOBOX_LABEL", item.Id, data.Text or "")
+        local tipKey = data.TipTextHash or ShopUI.CreateTextEntry("HORSE_INFOBOX_TIP", item.Id, data.TipText or "")
 
         ShopUI.Scene.SetHorseInfoBox({
             data.Visible == true,
@@ -2646,10 +2804,10 @@ function ShopUI.Scene.SetVehicleStatsFromItem(item)
     local data = itemData.VehicleStats
 
     if data and type(data) == "table" then
-        local maxSpeedKey = ShopUI.CreateTextEntry("VEHICLE_SPEED", item.Id, data.MaxSpeed or "")
-        local accelerationKey = ShopUI.CreateTextEntry("VEHICLE_ACCELERATION", item.Id, data.Acceleration or "")
-        local steeringKey = ShopUI.CreateTextEntry("VEHICLE_STEERING", item.Id, data.Steering or "")
-        local descriptionKey = ShopUI.CreateTextEntry("VEHICLE_DESCRIPTION", item.Id, data.Description or "")
+        local maxSpeedKey = data.MaxSpeedHash or ShopUI.CreateTextEntry("VEHICLE_SPEED", item.Id, data.MaxSpeed or "")
+        local accelerationKey = data.AccelerationHash or ShopUI.CreateTextEntry("VEHICLE_ACCELERATION", item.Id, data.Acceleration or "")
+        local steeringKey = data.SteeringHash or ShopUI.CreateTextEntry("VEHICLE_STEERING", item.Id, data.Steering or "")
+        local descriptionKey = data.DescriptionHash or ShopUI.CreateTextEntry("VEHICLE_DESCRIPTION", item.Id, data.Description or "")
 
         ShopUI.Scene.SetVehicleStats(
             data.Primary == true,
@@ -2900,11 +3058,14 @@ function ShopUI.Scene.SetBusinessInfoFromItem(item)
     local data = itemData.BusinessInfo
 
     if data and type(data) == "table" then
-        local descriptionKey = ShopUI.CreateTextEntry("BUSINESS_DESC", item.Id, data.Description or "")
+        local hash = data.DescriptionHash
+        if not hash or hash == 0 then
+            hash = ShopUI.CreateTextEntry("BUSINESS_DESC", item.Id, data.Description or "")
+        end
 
         ShopUI.Scene.SetBusinessInfo(
             data.Visible == true,
-            descriptionKey,
+            hash,
             data.MaterialsIconDictionary or "",
             data.MaterialsIcon or "",
             data.ProductionIconDictionary or "",
@@ -2941,7 +3102,7 @@ function ShopUI.Scene.SetPalette(id, value, items)
     ShopUI.CreatePaletteItemListBinding()
 
     for index, item in ipairs(items) do
-        local key = ShopUI.CreateTextEntry(id, index, item.Text or "")
+        local key = item.TextHash or ShopUI.CreateTextEntry(id, index, item.Text or "")
 
         local entry = DatabindingAddDataContainer(ShopUI.bindings.dscPaletteItemListEntries, string.format("paletteEntry_%d", index))
         DatabindingAddDataBool(entry, "visible", item.Visible == true)

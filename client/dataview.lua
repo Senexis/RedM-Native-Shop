@@ -183,8 +183,11 @@ for label, datatype in pairs(DataView.FixedTypes) do
     end
 end
 
-function BigInt(text)
-    local string1 = DataView.ArrayBuffer(16)
-    string1:SetInt64(0, text)
-    return string1:GetInt64(0)
+---Converts a string to a bigint for native function compatibility
+---@param text string|number The text string to convert
+---@return number bigint The converted bigint value
+function BigInt(text, endian)
+    local stringBuffer = DataView.ArrayBuffer(16)
+    stringBuffer:SetInt64(0, text, endian)
+    return stringBuffer:GetInt64(0)
 end

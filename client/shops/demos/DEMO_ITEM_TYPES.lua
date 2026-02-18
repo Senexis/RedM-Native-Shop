@@ -87,7 +87,7 @@ local function getTestItemsItems(type)
             IsNew = true,
             IsOnSale = true,
             StepperOptions = { "Visible", "Hidden" },
-            StepperValue = 0,
+            StepperValue = 1,
             StepperVisible = true,
             StepperTextureVisible = false,
             StepperTexture = 0,

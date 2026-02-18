@@ -262,14 +262,26 @@ end
 --- Handles dynamic generation if the root is a registered generator.
 ---@param menuId string The ID of the static menu to switch to.
 ---@param rootId string The root ID of the tree this menu belongs to.
----@param linkData any|nil Optional data passed if this navigation was triggered by a link.
+---@param data table|nil Optional data passed if this navigation was triggered by a link.
 ---@return number The suggested focus index for the UI.
-function ShopNavigator:_setMenuState(menuId, rootId, linkData)
+function ShopNavigator:_setMenuState(menuId, rootId, data)
     -- Handle Dynamic Generation
     if self.generators[rootId] then
+        local linkData = data and data.LinkData or nil
+
         -- 1. Check if the context has changed
         -- If linkData is provided, compare it against the cached context.
         if linkData ~= nil then
+            if type(linkData) == "function" then
+                local ok, result = pcall(linkData, data)
+                if ok then
+                    linkData = result
+                else
+                    self.onError("Link data function failed: " .. tostring(result))
+                    linkData = nil
+                end
+            end
+
             local lastData = self.generatorData[rootId]
 
             if not self:_isSameContext(linkData, lastData) then
@@ -478,7 +490,7 @@ function ShopNavigator:open(menuId, linkData)
     self.itemOverrides = {}
     self.visibilityOverrides = {}
 
-    return self:_setMenuState(menuId, targetRootId, linkData)
+    return self:_setMenuState(menuId, targetRootId, { LinkData = linkData })
 end
 
 function ShopNavigator:close()
@@ -528,12 +540,13 @@ function ShopNavigator:navigateInto(index)
         -- Determine Target Menu
         local targetMenuId = item.LinkMenuId
         if item.LinkPageId then
-            if self.menuMap[targetRoot] and self.menuMap[targetRoot][item.LinkPageId] then
+            local isDynamicRoot = self.generators[targetRoot] ~= nil
+            local pageExists = self.menuMap[targetRoot] and self.menuMap[targetRoot][item.LinkPageId]
+
+            if pageExists or isDynamicRoot then
                 targetMenuId = item.LinkPageId
             else
-                if not self.generators[targetRoot] then
-                    print("[NativeShop] Warning: LinkPageId '" .. item.LinkPageId .. "' not found. Defaulting to '" .. targetMenuId .. "'.")
-                end
+                print("[NativeShop] Warning: LinkPageId '" .. item.LinkPageId .. "' not found. Defaulting to '" .. targetMenuId .. "'.")
             end
         end
 
@@ -543,7 +556,7 @@ function ShopNavigator:navigateInto(index)
         end
 
         -- Pass item.LinkData to _setMenuState for dynamic generators
-        local result = self:_setMenuState(targetMenuId, targetRoot, item.LinkData)
+        local result = self:_setMenuState(targetMenuId, targetRoot, item)
         TriggerEvent("native_shop:menu_navigated", {
             RootId = self.currentRootId,
             Menu = self:getCurrentMenu(),

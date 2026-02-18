@@ -92,11 +92,8 @@ local function getBasicShopItems(filter)
     local items = {}
     for _, item in ipairs(shop_inventory) do
         if not filter or item.Category == filter then
-            local purchase_quantity = item.__purchase_quantity or 1
             local player_quantity = player_inventory[item.ID] or 0
-
-            local name = GetStringFromHashKey(item.ID)
-            local description = GetStringFromHashKey(item.ID .. "_DESC")
+            local purchase_quantity = item.__purchase_quantity or 1
             local current_price = (item.SalePrice or item.Price) * purchase_quantity
 
             local footer = string.format("In stock: %d ~m~|~s~ Owned: %d", item.Stock, player_quantity)
@@ -108,7 +105,7 @@ local function getBasicShopItems(filter)
             table.insert(items, {
                 Id = "SHOP_ITEM_" .. item.ID,
                 Type = "INVENTORY",
-                Label = purchase_quantity > 1 and string.format("%dx %s", purchase_quantity, name) or name,
+                Auto = item.ID,
                 Footer = footer,
                 Disabled = item.Stock <= 0,
                 Prompts = {
@@ -123,7 +120,6 @@ local function getBasicShopItems(filter)
                     }
                 },
                 Data = {
-                    ItemDescription = description,
                     DisabledFooter = "~e~Out of stock~s~ ~m~|~s~ Owned: " .. (player_quantity),
                     IsOnSale = item.SalePrice ~= nil,
                     ForSale = true,

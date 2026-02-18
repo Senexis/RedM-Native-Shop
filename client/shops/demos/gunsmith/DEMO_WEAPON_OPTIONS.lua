@@ -1,169 +1,3 @@
--- Some things you would need to implement:
--- 1. Getting the weapon's degradation
--- 2. Getting the weapon's current stats with components applied
-local function getWeaponStats(weapon, component)
-    local weaponHash = weapon and joaat(weapon) or 0
-    local componentHash = component and joaat(component) or 0
-
-    -- Check if the item is a weapon
-    local weaponInfo = GetItemInfo(weaponHash)
-    if weaponInfo.group ~= `WEAPON` then
-        return nil
-    end
-
-    -- Optionally get component info if a component is provided
-    local componentInfo = nil
-    if componentHash ~= 0 then
-        componentInfo = GetItemInfo(componentHash)
-    end
-
-    -- Base stats
-    local baseStats = {
-        damage = 0,
-        range = 0,
-        fireRate = 0,
-        reload = 0,
-        accuracy = 0
-    }
-
-    -- Get weapon familiarity
-    local familiarityMult = 100
-    local struct = DataView.ArrayBuffer(16)
-    struct:SetInt32(0, `skill`)
-    struct:SetInt32(8, GetWeaponStatId(weaponHash))
-
-    if Citizen.InvokeNative(0xC48FE1971C9743FF, struct:Buffer()) == 1 then
-        familiarityMult = Citizen.InvokeNative(0xD7AE6C9C9C6AC54D, struct:Buffer(), Citizen.ResultAsFloat())
-    end
-
-    -- Process base weapon effects
-    local effects = GetItemEffectIds(weaponHash)
-    for _, effectId in ipairs(effects) do
-        local effectData = GetItemEffectData(effectId)
-
-        -- Retrieves the base stats of the weapon from its effects
-        if effectData.type == -266488916 then
-            baseStats.damage += effectData.value
-        elseif effectData.type == 1648497600 then
-            baseStats.range += effectData.value
-        elseif effectData.type == -1856731002 then
-            baseStats.fireRate += effectData.value
-        elseif effectData.type == 2038990430 then
-            baseStats.reload += effectData.value
-        elseif effectData.type == 983649838 then
-            baseStats.accuracy += effectData.value
-        end
-
-        -- Applies a skill bonus based on the weapon familiarity
-        if effectData.type == 1465168878 then
-            baseStats.range += math.floor(effectData.value * (familiarityMult / 100))
-        elseif effectData.type == -1103443887 then
-            baseStats.reload += math.floor(effectData.value * (familiarityMult / 100))
-        elseif effectData.type == -800430237 then
-            baseStats.accuracy += math.floor(effectData.value * (familiarityMult / 100))
-        end
-    end
-
-    local currentBonus = { damage = 0, accuracy = 0, range = 0 }
-
-    -- TODO: Iterate through all equipped components on the weapon
-    -- You'll need a list of all applied components, and then do the same as below for each item
-    -- You should add each effect value to the currentBonus
-
-    local potentialBonus = { damage = 0, accuracy = 0, range = 0 }
-
-    -- Process preview component effects if a component is provided
-    if componentInfo then
-        local componentEffectIds = GetItemEffectIds(componentHash)
-
-        if componentInfo.group == `AMMO` then
-            for _, componentEffectId in ipairs(componentEffectIds) do
-                local componentEffect = GetItemEffectData(componentEffectId)
-
-                if componentEffect.type == 1999781523 then
-                    baseStats.damage += componentEffect.value
-                elseif componentEffect.type == 1173003838 then
-                    baseStats.accuracy += componentEffect.value
-                elseif componentEffect.type == -1657343230 then
-                    baseStats.range += componentEffect.value
-                end
-            end
-        else
-            for _, componentEffectId in ipairs(componentEffectIds) do
-                local componentEffect = GetItemEffectData(componentEffectId)
-
-                if componentEffect.type == 1999781523 then
-                    potentialBonus.damage += componentEffect.value
-                elseif componentEffect.type == 1173003838 then
-                    potentialBonus.accuracy += componentEffect.value
-                elseif componentEffect.type == -1657343230 then
-                    potentialBonus.range += componentEffect.value
-                end
-            end
-        end
-    end
-
-    local finalStat = {
-        damage = baseStats.damage + currentBonus.damage,
-        range = baseStats.range + currentBonus.range,
-        accuracy = baseStats.accuracy + currentBonus.accuracy,
-        fireRate = baseStats.fireRate,
-        reload = baseStats.reload
-    }
-
-    local projectedStat = {
-        damage = baseStats.damage + potentialBonus.damage,
-        range = baseStats.range + potentialBonus.range,
-        accuracy = baseStats.accuracy + potentialBonus.accuracy
-    }
-
-    local maxDisplay = {
-        damage = math.max(finalStat.damage, projectedStat.damage),
-        range = math.max(finalStat.range, projectedStat.range),
-        accuracy = math.max(finalStat.accuracy, projectedStat.accuracy)
-    }
-
-    -- TODO: Get this weapon's degradation
-    local degradation = 0
-    local degradationPenalty = math.ceil(degradation * 10.0)
-
-    -- Apply penalty to current actuals
-    finalStat.damage = finalStat.damage - degradationPenalty
-    finalStat.fireRate = finalStat.fireRate - degradationPenalty
-    finalStat.reload = finalStat.reload - degradationPenalty
-
-    -- Apply penalty to projected stats
-    projectedStat.damage = projectedStat.damage - degradationPenalty
-
-    return {
-        Power = {
-            Value = projectedStat.damage,
-            Diff = maxDisplay.damage,
-            New = finalStat.damage,
-        },
-        Range = {
-            Value = projectedStat.range,
-            Diff = maxDisplay.range,
-            New = finalStat.range,
-        },
-        Accuracy = {
-            Value = projectedStat.accuracy,
-            Diff = maxDisplay.accuracy,
-            New = finalStat.accuracy,
-        },
-        FireRate = {
-            Value = finalStat.fireRate,
-            Diff = baseStats.fireRate,
-            New = finalStat.fireRate,
-        },
-        Reload = {
-            Value = finalStat.reload,
-            Diff = baseStats.reload,
-            New = finalStat.reload,
-        },
-    }
-end
-
 local function getItems(id, components)
     local items = {}
     for i, component in ipairs(components) do
@@ -178,10 +12,10 @@ local function getItems(id, components)
                 Equipped = i == 1,
                 EquippedTextureDictionary = "menu_textures",
                 EquippedTexture = "menu_icon_tick",
-                WeaponStats = getWeaponStats(id, component),
+                WeaponStats = GetWeaponStats(id, component),
             },
             Action = function(item)
-                PostFeedTicker(string.format("Selected weapon component %s", item.Id))
+                PostFeedTicker(string.format("Selected %s", item.Id))
             end,
         })
     end
@@ -191,22 +25,26 @@ end
 local function getSwatches(components)
     local swatches = {}
     for i, component in ipairs(components) do
-        local name = GetStringFromHashKey(component)
-        local ui = GetItemUiData(joaat(component))
-        local swatchTextureDict = ui.swatchTextureDict
-        local swatchTextureId = ui.swatchTextureId
-
-        if swatchTextureDict and swatchTextureId then
-            table.insert(swatches, {
-                Id = component,
-                Visible = true,
-                Text = name,
-                TextureDictionary = swatchTextureDict,
-                Texture = swatchTextureId,
-                Owned = true,
-                Equipped = i == 1,
-            })
+        local componentItem = ItemDatabase.new(component)
+        if not componentItem then
+            print("[NativeShop] Invalid component in database:", component)
+            goto continue
         end
+
+        local name = componentItem:GetLabel()
+        local txd, txn = componentItem:GetSwatchTexture()
+
+        table.insert(swatches, {
+            Id = component,
+            Visible = true,
+            Text = name,
+            TextureDictionary = txd,
+            Texture = txn,
+            Owned = true,
+            Equipped = i == 1,
+        })
+
+        ::continue::
     end
     return swatches
 end
@@ -219,7 +57,7 @@ local function getSwatchAction(components)
         local swatch = swatches[value]
         if not swatch then return end
 
-        PostFeedTicker(string.format("Selected weapon component %s", swatch.Id))
+        PostFeedTicker(string.format("Selected %s", swatch.Id))
     end
 end
 
@@ -231,7 +69,7 @@ local function getWeaponOptionsMenu(weapon)
     local components = WEAPON_COMPONENTS[id] or {}
     local menu = {}
 
-    local stats = getWeaponStats(id)
+    local stats = GetWeaponStats(id)
 
     if type ~= "BOW" and type ~= "MELEE" then
         table.insert(menu, {

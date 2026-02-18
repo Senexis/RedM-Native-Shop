@@ -93,7 +93,6 @@ local data = {
         },
         {
             Id = "ACTIONS_MENU",
-            Type = "MENU_LIST",
             Label = "Actions",
             Data = {
                 ItemDescription = "Showcases examples of common menu actions such as closing the menu, going back a page, or linking to another menu.",
