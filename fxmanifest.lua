@@ -9,8 +9,8 @@ version "1.0.0"
 repository "https://github.com/Senexis/RedM-Native-Shop"
 license "GNU GPL v3"
 
--- Load modules in dependency order
 client_scripts {
+    -- Load modules in dependency order
     "client/util_dataview.lua",
     "client/util_items.lua",
     "client/util_ticker.lua",
@@ -22,5 +22,6 @@ client_scripts {
     "client/res_events.lua",
     "client/res_exports.lua",
 
-    "client/shops/**/*.lua"
+    -- Optional demonstration menus
+    "shops/**/*.lua"
 }
