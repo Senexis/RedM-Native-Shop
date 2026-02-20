@@ -544,6 +544,9 @@ function ShopUI.RefreshMenu(id)
 
     ShopUI.state.suppressFocusEvent = true
     ShopEvents.SetShopEventFlag(ShopEvents.FLAG_FOCUSED)
+
+    -- Trigger a state changed event so we can update the scene UI
+    ShopEvents.SetShopEventFlag(ShopEvents.FLAG_STATE_CHANGED)
 end
 
 function ShopUI.RefreshAllItems()
