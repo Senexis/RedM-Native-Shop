@@ -23,7 +23,7 @@ local function getClothingStylesMenu(data)
                     Type = "SWATCH",
                     Auto = true,
                     Prompts = {
-                        Select = { Visible = true, Label = "Equip" }
+                        Select = "Equip"
                     },
                     Action = function(selected)
                         PostFeedTicker(string.format("Selected %s", selected.Id))

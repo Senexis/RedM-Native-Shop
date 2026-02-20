@@ -52,7 +52,7 @@ local function getFastTravelItems(filter)
                 Label = name,
                 Footer = string.format("%s is %.1f meters away", name, distance),
                 Prompts = {
-                    Select = { Visible = true, Label = "Travel" }
+                    Select = "Travel"
                 },
                 Data = {
                     RightText = string.format("%.1fm", distance),

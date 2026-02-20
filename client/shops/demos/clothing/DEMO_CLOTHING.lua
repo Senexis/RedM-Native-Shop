@@ -26,7 +26,7 @@ local function getClothingMenu(data)
                     Footer = removeYourTooltip:gsub("~1p~", itemData:ClothingSingleItemName()),
                     Auto = true,
                     Prompts = {
-                        Select = { Visible = true, Label = "Remove" }
+                        Select = "Remove"
                     },
                     Action = function(selected)
                         PostFeedTicker(string.format("Removed %s", itemData:ClothingSingleItemName()))
@@ -53,7 +53,7 @@ local function getClothingMenu(data)
                     Type = "INVENTORY",
                     Auto = true,
                     Prompts = {
-                        Select = { Visible = true, Label = "Equip" }
+                        Select = "Equip"
                     },
                     Action = function(selected)
                         PostFeedTicker(string.format("Selected %s", selected.Id))

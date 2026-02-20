@@ -37,7 +37,7 @@ local function getWeaponItems(filter)
                     Label = name,
                     Footer = customizeTooltip,
                     Prompts = {
-                        Select = { Visible = true, Label = "Customize" },
+                        Select = "Customize",
                         Option = { Visible = secondary, Label = "Buy Secondary" }
                     },
                     Data = { WeaponStats = stats },
@@ -51,7 +51,7 @@ local function getWeaponItems(filter)
                     Label = name,
                     Footer = dontOwnTooltip,
                     Prompts = {
-                        Select = { Visible = true, Label = "Buy" }
+                        Select = "Buy"
                     },
                     Data = { WeaponStats = stats },
                     Action = function(selected)

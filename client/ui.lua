@@ -1247,9 +1247,9 @@ function ShopUI.Events.HandleStepperChange()
 
         -- Clamp the index within bounds
         if (index >= max) then
-            index = (max - 1)
-        elseif (index < 0) then
             index = 0
+        elseif (index < 0) then
+            index = (max - 1)
         end
 
         -- Update the item's value
@@ -2030,10 +2030,10 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     local sceneData = menu.Data or {}
     local sceneSlider = sceneData.SliderInfo or {}
 
-    local type = item.Type
-    local data = item.Data or {}
-    local slider = data.SliderInfo or {}
-    local palette = data.Palette or {}
+    local itemType = item.Type
+    local itemData = item.Data or {}
+    local slider = itemData.SliderInfo or {}
+    local palette = itemData.Palette or {}
 
     local prompts = item.Prompts or {}
     local selectData = prompts.Select or {}
@@ -2045,10 +2045,18 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
 
     -- Enter | A
     -- Select is always visible for submenu/context items
-    if selectData.Visible == true or item.HasNavigation then
-        local label = selectData.Label or GetStringFromHashKey("IB_SELECT")
-        local disabled = selectData.Disabled == true
-        local held = selectData.Held == true
+    if type(selectData) == "string" or selectData.Visible == true or item.HasNavigation then
+        local label, disabled, held = nil, nil, nil
+
+        if type(selectData) == "string" then
+            label = selectData
+            disabled = false
+            held = false
+        else
+            label = selectData.Label or GetStringFromHashKey("IB_SELECT")
+            disabled = selectData.Disabled == true
+            held = selectData.Held == true
+        end
 
         ShopUI.Prompts.SetPromptLabel(1, label)
         ShopUI.Prompts.SetPromptEnabled(1, not isItemDisabled and not disabled)
@@ -2059,10 +2067,18 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     end
 
     -- Space | X
-    if optionData.Visible == true then
-        local label = optionData.Label or "Missing Option Label"
-        local disabled = optionData.Disabled == true
-        local held = optionData.Held == true
+    if type(optionData) == "string" or optionData.Visible == true then
+        local label, disabled, held = nil, nil, nil
+
+        if type(optionData) == "string" then
+            label = optionData
+            disabled = false
+            held = false
+        else
+            label = optionData.Label or "Missing Option Label"
+            disabled = optionData.Disabled == true
+            held = optionData.Held == true
+        end
 
         ShopUI.Prompts.SetPromptLabel(2, label)
         ShopUI.Prompts.SetPromptEnabled(2, not isItemDisabled and not disabled)
@@ -2073,10 +2089,18 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     end
 
     -- F | Y
-    if toggleData.Visible == true then
-        local label = toggleData.Label or "Missing Toggle Label"
-        local disabled = toggleData.Disabled == true
-        local held = toggleData.Held == true
+    if type(toggleData) == "string" or toggleData.Visible == true then
+        local label, disabled, held = nil, nil, nil
+
+        if type(toggleData) == "string" then
+            label = toggleData
+            disabled = false
+            held = false
+        else
+            label = toggleData.Label or "Missing Toggle Label"
+            disabled = toggleData.Disabled == true
+            held = toggleData.Held == true
+        end
 
         ShopUI.Prompts.SetPromptLabel(3, label)
         ShopUI.Prompts.SetPromptEnabled(3, not isItemDisabled and not disabled)
@@ -2087,11 +2111,20 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     end
 
     -- Tab | RS
-    if infoData.Visible == true then
-        local label = infoData.Label or "Missing Info Label"
-        local disabled = infoData.Disabled == true
+    if type(infoData) == "string" or infoData.Visible == true then
+        local label, disabled, held = nil, nil, nil
 
-        if infoData.Held == true then
+        if type(infoData) == "string" then
+            label = infoData
+            disabled = false
+            held = false
+        else
+            label = infoData.Label or "Missing Info Label"
+            disabled = infoData.Disabled == true
+            held = infoData.Held == true
+        end
+
+        if held == true then
             print("[NativeShop] Warning: Info prompt cannot be held. Ignoring 'Held' property.")
         end
 
@@ -2103,57 +2136,21 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
         ShopUI.Prompts.ClearPrompt(4)
     end
 
-    -- Arrow left/right | D-Pad left/right
-    -- Adjust may be enabled or visible through the menu instead of the item
-    -- Adjust is always visible in press mode when using a stepper item
-    -- Even when the item is a stepper item, the label can be customized
-    if menu.Scene == "ITEM_LIST_SLIDER" then
-        local label = adjustData.Label or GetStringFromHashKey("IB_ADJUST")
-        local enabled = slider.Enabled or sceneSlider.Enabled or false
-        local visible = slider.Visible or sceneSlider.Visible or false
+    -- Q/E | LB/RB
+    if type(modifyData) == "string" or modifyData.Visible == true then
+        local label, disabled, held = nil, nil, nil
 
-        ShopUI.Prompts.SetPromptLabel(5, label)
-        ShopUI.Prompts.SetPromptEnabled(5, not isItemDisabled and enabled)
-        ShopUI.Prompts.SetPromptVisible(5, visible)
-        ShopUI.Prompts.SetPromptHeld(5, false)
-    elseif menu.Scene == "ITEM_LIST_COLOUR_PALETTE" then
-        local label = adjustData.Label or GetStringFromHashKey("IB_ADJUST")
-        local enabled = palette and palette.Items and #palette.Items > 0
-
-        ShopUI.Prompts.SetPromptLabel(5, label)
-        ShopUI.Prompts.SetPromptEnabled(5, not isItemDisabled and enabled)
-        ShopUI.Prompts.SetPromptVisible(5, true)
-        ShopUI.Prompts.SetPromptHeld(5, false)
-    elseif type == "STEPPER" and data.StepperVisible then
-        local label = adjustData.Label or GetStringFromHashKey("IB_ADJUST")
-        local enabled = data.StepperVisible or false
-
-        ShopUI.Prompts.SetPromptLabel(5, label)
-        ShopUI.Prompts.SetPromptEnabled(5, not isItemDisabled and enabled)
-        ShopUI.Prompts.SetPromptVisible(5, true)
-        ShopUI.Prompts.SetPromptHeld(5, false)
-    elseif adjustData.Visible == true then
-        local label = adjustData.Label or "Missing Adjust Label"
-        local disabled = adjustData.Disabled == true
-
-        if adjustData.Held == true then
-            print("[NativeShop] Warning: Adjust prompt cannot be held. Ignoring 'Held' property.")
+        if type(modifyData) == "string" then
+            label = modifyData
+            disabled = false
+            held = false
+        else
+            label = modifyData.Label or "Missing Modify Label"
+            disabled = modifyData.Disabled == true
+            held = modifyData.Held == true
         end
 
-        ShopUI.Prompts.SetPromptLabel(5, label)
-        ShopUI.Prompts.SetPromptEnabled(5, not isItemDisabled and not disabled)
-        ShopUI.Prompts.SetPromptVisible(5, true)
-        ShopUI.Prompts.SetPromptHeld(5, false)
-    else
-        ShopUI.Prompts.ClearPrompt(5)
-    end
-
-    -- Q/E | LB/RB
-    if modifyData.Visible == true then
-        local label = modifyData.Label or "Missing Modify Label"
-        local disabled = modifyData.Disabled == true
-
-        if modifyData.Held == true then
+        if held == true then
             print("[NativeShop] Warning: Modify prompt cannot be held. Ignoring 'Held' property.")
         end
 
@@ -2164,17 +2161,87 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     else
         ShopUI.Prompts.ClearPrompt(6)
     end
+
+    -- Arrow left/right | D-Pad left/right
+    -- Adjust may be enabled or visible through the menu instead of the item
+    -- Adjust is always visible in press mode when using a stepper item
+    -- Even when the item is a stepper item, the label can be customized
+    local adjustLabel, adjustDisabled, adjustHeld = nil, nil, nil
+    local adjustVisible = false
+
+    if type(adjustData) == "string" then
+        adjustLabel = adjustData
+        adjustDisabled = false
+        adjustHeld = false
+        adjustVisible = true
+    else
+        adjustLabel = adjustData.Label or GetStringFromHashKey("IB_ADJUST")
+        adjustDisabled = adjustData.Disabled == true
+        adjustHeld = adjustData.Held == true
+        adjustVisible = adjustData.Visible == true
+    end
+
+    if adjustHeld == true then
+        print("[NativeShop] Warning: Adjust prompt cannot be held. Ignoring 'Held' property.")
+    end
+
+    if menu.Scene == "ITEM_LIST_SLIDER" then
+        adjustDisabled = adjustDisabled == true or slider.Disabled == true or sceneSlider.Disabled == true
+        adjustVisible = adjustVisible == true or slider.Visible or sceneSlider.Visible or false
+    elseif menu.Scene == "ITEM_LIST_COLOUR_PALETTE" then
+        adjustDisabled = adjustDisabled == true or not palette.Items or #palette.Items < 1
+        adjustVisible = adjustVisible == true or not adjustDisabled
+    elseif itemType == "STEPPER" and itemData.StepperVisible then
+        adjustDisabled = adjustDisabled == true or not itemData.StepperVisible
+        adjustVisible = adjustVisible == true or not adjustDisabled
+    end
+
+    if adjustVisible then
+        ShopUI.Prompts.SetPromptLabel(5, adjustLabel)
+        ShopUI.Prompts.SetPromptEnabled(5, not isItemDisabled and not adjustDisabled)
+        ShopUI.Prompts.SetPromptVisible(5, true)
+        ShopUI.Prompts.SetPromptHeld(5, false)
+    else
+        ShopUI.Prompts.ClearPrompt(5)
+    end
 end
 
 function ShopUI.Prompts.UpdateBackPrompt()
-    local hasParent = ShopNavigator:getParentIdForMenu() ~= nil
-    local hasLinkedFromMenu = ShopNavigator:getLinkedFromMenuId() ~= nil
-    local backLabel = (hasParent or hasLinkedFromMenu) and "IB_BACK" or "IB_EXIT"
+    local menu = ShopNavigator:getCurrentMenu()
+    if not menu then return end
 
-    ShopUI.Prompts.SetPromptLabel(7, GetStringFromHashKey(backLabel))
-    ShopUI.Prompts.SetPromptEnabled(7, true)
-    ShopUI.Prompts.SetPromptVisible(7, true)
-    ShopUI.Prompts.SetPromptHeld(7, false)
+    local prompts = menu.Prompts or {}
+    local backData = prompts.Back or nil
+
+    if not backData then
+        local hasParent = ShopNavigator:getParentIdForMenu() ~= nil
+        local hasLinkedFromMenu = ShopNavigator:getLinkedFromMenuId() ~= nil
+        local backLabel = (hasParent or hasLinkedFromMenu) and "IB_BACK" or "IB_EXIT"
+
+        ShopUI.Prompts.SetPromptLabel(7, GetStringFromHashKey(backLabel))
+        ShopUI.Prompts.SetPromptEnabled(7, true)
+        ShopUI.Prompts.SetPromptVisible(7, true)
+        ShopUI.Prompts.SetPromptHeld(7, false)
+    elseif type(backData) == "string" or backData.Visible == true then
+        local label, disabled, held = nil, nil, nil
+
+        if type(backData) == "string" then
+            label = backData
+            disabled = false
+            held = false
+        elseif type(backData) == "table" then
+            label = backData.Label or "Missing Back Label"
+            disabled = backData.Disabled == true
+            held = backData.Held == true
+        end
+
+        ShopUI.Prompts.SetPromptLabel(7, label)
+        ShopUI.Prompts.SetPromptEnabled(7, not disabled)
+        ShopUI.Prompts.SetPromptVisible(7, true)
+        ShopUI.Prompts.SetPromptHeld(7, held)
+    else
+        ShopUI.Prompts.ClearPrompt(7)
+    end
 end
 
 function ShopUI.Prompts.SetPromptLabel(type, label)
@@ -2407,7 +2474,11 @@ function ShopUI.Scene.SetItemWeather(visible, enabled, opacity, warmth)
     -- 0 (40%) or 1 (100%)
     DatabindingAddDataInt(datastore, "Opacity", opacity or 0)
 
-    -- 0 (cold) through 4 (hot)
+    -- 0 = CLOTHING_WARMTH_0 (A lightweight item)
+    -- 1 = CLOTHING_WARMTH_1 (Slightly warm)
+    -- 2 = CLOTHING_WARMTH_2 (Reasonably warm)
+    -- 3 = CLOTHING_WARMTH_3 (Warm)
+    -- 4 = CLOTHING_WARMTH_4 (Very warm)
     DatabindingAddDataInt(datastore, "Warmth", warmth or 0)
 end
 
@@ -2439,10 +2510,10 @@ function ShopUI.Scene.SetOutfitWeather(visible, enabled, opacity, effectiveness)
     -- 0 (40%) or 1 (100%)
     DatabindingAddDataInt(datastore, "Opacity", opacity or 0)
 
-    -- 0 = OUTFIT_HOT_WEATHER
-    -- 1 = OUTFIT_NO_EXTREME_WEATHER
-    -- 2 = OUTFIT_COLD_WEATHER
-    -- 3 = OUTFIT_IMMUNE_WEATHER
+    -- 0 = OUTFIT_HOT_WEATHER (Hot temperatures)
+    -- 1 = OUTFIT_NO_EXTREME_WEATHER (Average temperatures)
+    -- 2 = OUTFIT_COLD_WEATHER (Cold temperatures)
+    -- 3 = OUTFIT_IMMUNE_WEATHER (All temperatures)
     DatabindingAddDataInt(datastore, "Effectiveness", effectiveness or 0)
 end
 

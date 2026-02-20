@@ -31,7 +31,7 @@ local data = {
                     Type = "TEXT",
                     Label = "Cooldown",
                     Prompts = {
-                        Select = { Visible = true, Label = "Select" }
+                        Select = "Select"
                     },
                     Data = {
                         ItemDescription = "Showcases an example of disabling an item with a cooldown timer displayed in the footer.",
@@ -108,6 +108,28 @@ local data = {
                     LinkPageId = nil,
                     Data = {
                         ItemDescription = "A demo player list menu showcasing dynamic items based on nearby players, with a dynamic context menu for player interactions.",
+                    }
+                },
+                {
+                    Id = "DEMO_MANUAL_BACK",
+                    Type = "TEXT",
+                    Label = "Manual Back",
+                    Prompts = {
+                        Back = { Visible = false }
+                    },
+                    Data = {
+                        ItemDescription = "Showcases an example of manually managing the back prompt. In this case, the back prompt is hidden and a specific menu item is used to go back.",
+                    },
+                    Items = {
+                        {
+                            Id = "ACTION_BACK",
+                            Type = "TEXT",
+                            Label = "Go Back",
+                            Action = "BACK",
+                            Data = {
+                                ItemDescription = "This is the only way to go back.",
+                            }
+                        },
                     }
                 },
                 {
