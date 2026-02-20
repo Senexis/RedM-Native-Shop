@@ -31,8 +31,8 @@ local data = {
             Action = function()
                 actionCooldownSeconds = COOLDOWN_SECONDS
 
-                TriggerEvent("shop:disable_item", COOLDOWN_ID)
-                TriggerEvent("shop:set_item_footer", COOLDOWN_ID, getActionCooldownFooter(actionCooldownSeconds))
+                TriggerEvent("native_shop:disable_item", COOLDOWN_ID)
+                TriggerEvent("native_shop:set_item_footer", COOLDOWN_ID, getActionCooldownFooter(actionCooldownSeconds))
 
                 PostFeedTicker(string.format("Cooling down action for %d seconds", actionCooldownSeconds))
 
@@ -43,13 +43,13 @@ local data = {
                         actionCooldownSeconds = actionCooldownSeconds - 1
 
                         if actionCooldownSeconds > 0 then
-                            TriggerEvent("shop:set_item_footer", COOLDOWN_ID, getActionCooldownFooter(actionCooldownSeconds))
+                            TriggerEvent("native_shop:set_item_footer", COOLDOWN_ID, getActionCooldownFooter(actionCooldownSeconds))
                         else
-                            TriggerEvent("shop:enable_item", COOLDOWN_ID)
-                            TriggerEvent("shop:clear_item_footer", COOLDOWN_ID)
+                            TriggerEvent("native_shop:enable_item", COOLDOWN_ID)
+                            TriggerEvent("native_shop:clear_item_footer", COOLDOWN_ID)
                         end
 
-                        TriggerEvent("shop:refresh_menu", MENU_ID)
+                        TriggerEvent("native_shop:refresh_menu", MENU_ID)
                     end
                 end)
             end

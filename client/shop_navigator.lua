@@ -568,10 +568,10 @@ function ShopNavigator:navigateInto(index)
 
     if item.Action then
         if item.Action == "CLOSE" then
-            TriggerEvent("shop:close")
+            TriggerEvent("native_shop:close")
             return nil
         elseif item.Action == "HIDE" then
-            TriggerEvent("shop:hide")
+            TriggerEvent("native_shop:hide")
             return nil
         elseif item.Action == "BACK" then
             return self:navigateBack() or 1
@@ -900,5 +900,3 @@ function ShopNavigator:getCurrentSubtitleEntry()
         Type = type
     }
 end
-
-_G.ShopNavigator = ShopNavigator

@@ -11,15 +11,16 @@ license "GNU GPL v3"
 
 -- Load modules in dependency order
 client_scripts {
-    "client/dataview.lua",
-    "client/itemdatabase.lua",
-    "client/ticker.lua",
-    "client/toast.lua",
-
-    "client/events.lua",
-    "client/navigation.lua",
-    "client/ui.lua",
-    "client/shop.lua",
+    "client/util_dataview.lua",
+    "client/util_items.lua",
+    "client/util_ticker.lua",
+    "client/util_toasts.lua",
+    "client/shop_events.lua",
+    "client/shop_navigator.lua",
+    "client/shop_ui.lua",
+    "client/shop_data.lua",
+    "client/res_events.lua",
+    "client/res_exports.lua",
 
     "client/shops/**/*.lua"
 }

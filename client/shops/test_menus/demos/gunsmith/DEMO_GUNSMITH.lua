@@ -57,7 +57,7 @@ local function getWeaponItems(filter)
                     Action = function(selected)
                         GiveWeaponToPed(PlayerPedId(), selected.Id, 9999, true, true, 0, false, 0.5, 1.0, `ADD_REASON_DEFAULT`, true, 0, false)
                         PostFeedTicker(string.format("Purchased %s", selected.Label))
-                        TriggerEvent("shop:refresh_menu", "DEMO_GUNSMITH")
+                        TriggerEvent("native_shop:refresh_menu", "DEMO_GUNSMITH")
                     end,
                 })
             end

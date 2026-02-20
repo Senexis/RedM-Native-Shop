@@ -159,7 +159,7 @@ AddEventHandler("native_shop:item_action", function(event)
                 end
 
                 item.__purchase_quantity = quantity
-                TriggerEvent("shop:refresh_menu", MENU_ID)
+                TriggerEvent("native_shop:refresh_menu", MENU_ID)
                 return
             end
         end
@@ -182,7 +182,7 @@ AddEventHandler("native_shop:item_selected", function(event)
                 player_inventory[item.ID] = (player_inventory[item.ID] or 0) + quantity
 
                 item.__purchase_quantity = nil
-                TriggerEvent("shop:refresh_menu", MENU_ID)
+                TriggerEvent("native_shop:refresh_menu", MENU_ID)
                 return
             end
         end

@@ -363,6 +363,11 @@ function ShopUI.PrevScene()
 end
 
 function ShopUI.Open(id)
+    if IsUiappRunning("shop_menu") == 1 then
+        print("[NativeShop] UI is already open. Please close the current menu before opening a new one.")
+        return
+    end
+
     ShopData.state.shuttingDown = false
 
     if ShopData.state.hiddenMenu == id then
@@ -420,6 +425,23 @@ function ShopUI.OnOpen()
     end
 
     LaunchUiappWithEntry("shop_menu", "generic_shop")
+
+    Citizen.CreateThread(function()
+        -- Only hook into the always-running event handler while the UI is open
+        while IsUiappRunning("shop_menu") == 1 do
+            Citizen.Wait(0)
+
+            local success, error = pcall(MaintainEvents)
+
+            -- If something went wrong, close the UI to prevent the user from getting stuck
+            if not success then
+                print("[NativeShop] An error occurred while processing shop events: ")
+                print("  " .. tostring(error))
+
+                CloseUiappImmediate("shop_menu")
+            end
+        end
+    end)
 end
 
 function ShopUI.Hide()
@@ -3446,5 +3468,3 @@ function ShopUI.Scene.FullClear()
     ShopUI.Scene.ClearBusinessInfo()
     ShopUI.Scene.ClearPalette()
 end
-
-_G.ShopUI = ShopUI

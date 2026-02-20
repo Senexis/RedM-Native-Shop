@@ -77,7 +77,7 @@ ShopNavigator:register(data, { FastTravelItems = getFastTravelItems })
 Citizen.CreateThread(function()
     while true do
         if ShopNavigator:getRootMenuId() == MENU_ID then
-            TriggerEvent("shop:refresh_menu", MENU_ID)
+            TriggerEvent("native_shop:refresh_menu", MENU_ID)
         end
 
         Citizen.Wait(1000)

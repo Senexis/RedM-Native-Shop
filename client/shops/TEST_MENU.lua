@@ -95,7 +95,7 @@ Citizen.CreateThread(function()
                     end
 
                     if UiPromptGetProgress(prompt) == 1.0 then
-                        TriggerEvent("shop:open", MENU_ID)
+                        TriggerEvent("native_shop:open", MENU_ID)
                     end
 
                     UiPromptDelete(prompt)

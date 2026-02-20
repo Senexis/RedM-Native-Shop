@@ -37,49 +37,22 @@ ShopEvents.state = {
     collectionRequestParameter = 0
 }
 
+function ShopEvents.GetShopEventFlags()
+    return ShopEvents.state.eventFlags
+end
+
 function ShopEvents.GetShopEventFlag(flag)
     return ShopEvents.state.eventFlags & flag ~= 0
 end
 
 function ShopEvents.SetShopEventFlag(flag)
     ShopEvents.state.eventFlags = ShopEvents.state.eventFlags | flag
-    ShopEvents.LogShopEventFlagStates()
     return ShopEvents.state.eventFlags
 end
 
 function ShopEvents.ClearShopEventFlag(flag)
     ShopEvents.state.eventFlags = ShopEvents.state.eventFlags & (~flag)
-    ShopEvents.LogShopEventFlagStates()
     return ShopEvents.state.eventFlags
-end
-
-function ShopEvents.LogShopEventFlagStates()
-    local flagTable = {
-        { flag = ShopEvents.FLAG_FOCUSED,              name = "EVENT_FOCUSED" },
-        { flag = ShopEvents.FLAG_PALETTE_CHANGED,      name = "EVENT_PALETTE_CHANGED" },
-        { flag = ShopEvents.FLAG_ITEM_SELECTED,        name = "EVENT_ITEM_SELECTED" },
-        { flag = ShopEvents.FLAG_NEXT_PAGE,            name = "EVENT_NEXT_PAGE" },
-        { flag = ShopEvents.FLAG_FILTER_CHANGED,       name = "EVENT_FILTER_CHANGED" },
-        { flag = ShopEvents.FLAG_NEXT_SCENE,           name = "EVENT_NEXT_SCENE" },
-        { flag = ShopEvents.FLAG_PREV_SCENE,           name = "EVENT_PREV_SCENE" },
-        { flag = ShopEvents.FLAG_EXIT,                 name = "EVENT_EXIT" },
-        { flag = ShopEvents.FLAG_STATE_CHANGED,        name = "EVENT_STATE_CHANGED" },
-        { flag = ShopEvents.FLAG_NEW_COLLECTION,       name = "EVENT_NEW_COLLECTION" },
-        { flag = ShopEvents.FLAG_COLLECTION_REQUEST,   name = "EVENT_COLLECTION_REQUEST" },
-        { flag = ShopEvents.FLAG_STEPPER_DELTA_CHANGE, name = "EVENT_STEPPER_DELTA_CHANGE" },
-        { flag = ShopEvents.FLAG_UNFOCUSED,            name = "EVENT_UNFOCUSED" }
-    }
-
-    local activeFlags = {}
-    local inactiveFlags = {}
-
-    for _, flagInfo in pairs(flagTable) do
-        if ShopEvents.GetShopEventFlag(flagInfo.flag) then
-            table.insert(activeFlags, flagInfo.name)
-        else
-            table.insert(inactiveFlags, flagInfo.name)
-        end
-    end
 end
 
 function ShopEvents.GetUiEventType(id)
@@ -235,14 +208,6 @@ Citizen.CreateThread(function()
                 local eventType = ShopEvents.GetUiEventType(eventHash)
                 local hashParameterType = ShopEvents.GetHashParameterType(hashParameter)
 
-                -- print("[NativeShop] Received UI Event:")
-                -- print("  Event ID: " .. tostring(eventHash))
-                -- print("  Event Type: " .. tostring(eventType))
-                -- print("  Hash Parameter: " .. tostring(hashParameter))
-                -- print("  Hash Parameter Type: " .. tostring(hashParameterType))
-                -- print("  Int Parameter: " .. tostring(intParameter))
-                -- print("  Datastore ID: " .. tostring(datastoreId))
-
                 if eventType == "TAB_PAGE_DECREMENT" or eventType == "TAB_PAGE_INCREMENT" then
                     ShopEvents.SetShopEventFlag(ShopEvents.FLAG_FILTER_CHANGED)
                     ShopEvents.SetShopEventFlag(ShopEvents.FLAG_STATE_CHANGED)
@@ -336,6 +301,7 @@ Citizen.CreateThread(function()
                     print("  Hash Parameter: " .. tostring(hashParameter))
                     print("  Hash Parameter Type: " .. tostring(hashParameterType))
                     print("  Int Parameter: " .. tostring(intParameter))
+                    print("  Datastore ID: " .. tostring(datastoreId))
                 end
             end
 
@@ -345,5 +311,3 @@ Citizen.CreateThread(function()
         Citizen.Wait(0)
     end
 end)
-
-_G.ShopEvents = ShopEvents
