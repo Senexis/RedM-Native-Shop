@@ -1,3 +1,17 @@
+local function deepCopy(orig)
+    local copy
+    if type(orig) == 'table' then
+        copy = {}
+        for orig_key, orig_value in next, orig, nil do
+            copy[deepCopy(orig_key)] = deepCopy(orig_value)
+        end
+        setmetatable(copy, deepCopy(getmetatable(orig)))
+    else
+        copy = orig
+    end
+    return copy
+end
+
 local function getTestMenusItems(id, shouldUseSwatch)
     if not shouldUseSwatch then
         shouldUseSwatch = false
@@ -396,10 +410,13 @@ local function getTestMenusItems(id, shouldUseSwatch)
             Type = shouldUseSwatch and "SWATCH" or "TEXT",
             Label = "Slider info",
             Footer = shouldUseSwatch and "Slider info" or "",
+            Action = function(_, value)
+                PostFeedTicker(string.format("Slider value is %s", tostring(value)))
+            end,
             Data = {
                 TextureDictionary = "overhead",
                 Texture = "overhead_kill_11",
-                SliderInfo = sliderInfo,
+                SliderInfo = deepCopy(sliderInfo),
                 Pricing = pricing
             }
         },
@@ -444,11 +461,14 @@ local function getTestMenusItems(id, shouldUseSwatch)
             Type = shouldUseSwatch and "SWATCH" or "PALETTE",
             Label = "Palette",
             Footer = shouldUseSwatch and "Palette" or "",
+            Action = function(_, value)
+                PostFeedTicker(string.format("Palette value is %s", tostring(value)))
+            end,
             Data = {
                 TextureDictionary = "overhead",
                 Texture = "overhead_kill_15",
                 IconVisible = true,
-                Palette = palette,
+                Palette = deepCopy(palette),
                 Pricing = pricing
             }
         },
@@ -467,12 +487,12 @@ local function getTestMenusItems(id, shouldUseSwatch)
                 ItemInfo1 = itemInfo1,
                 ItemInfo2 = itemInfo2,
                 OutfitWeather = outfitWeather,
-                Palette = palette,
+                Palette = deepCopy(palette),
                 Pricing = pricing,
                 RecipeFooter = recipeFooter,
                 RpgEffects = rpgEffects,
                 SaddleStats = saddleStats,
-                SliderInfo = sliderInfo,
+                SliderInfo = deepCopy(sliderInfo),
                 StirrupStats = stirrupStats,
                 VehicleStats = vehicleStats,
                 WeaponStats = weaponStats,

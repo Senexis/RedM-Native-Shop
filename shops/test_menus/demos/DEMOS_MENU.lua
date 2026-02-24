@@ -85,10 +85,8 @@ local data = {
                     Label = "Wardrobe",
                     LinkMenuId = "DEMO_CLOTHING",
                     LinkPageId = nil,
-                    LinkData = function(item)
-                        if not item or not item.Data then return end
-                        local gender = item.Data.StepperValue or 1
-                        return { Gender = gender }
+                    LinkData = function(_, value)
+                        return { Gender = value or 1 }
                     end,
                     Data = {
                         ItemDescription = "A demo clothing menu showcasing dynamic generation of items based on the selected gender.",

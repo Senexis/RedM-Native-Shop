@@ -642,6 +642,18 @@ function ShopUI.IsItemDisabled(item)
     return overriden or item.Disabled == true
 end
 
+function ShopUI.GetItemValue(item)
+    local data = item.Data or {}
+    if data.SliderInfo and data.SliderInfo.Value then
+        return data.SliderInfo.Value
+    elseif data.Palette and data.Palette.Value then
+        return data.Palette.Value
+    elseif data.StepperValue then
+        return data.StepperValue
+    end
+    return nil
+end
+
 function ShopUI.Events.HandleItemSelect()
     local type = ShopEvents.GetSelectedItemType()
     local index = ShopEvents.state.selectedIndex + 1

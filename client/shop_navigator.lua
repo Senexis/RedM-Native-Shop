@@ -296,7 +296,8 @@ function ShopNavigator:_setMenuState(menuId, rootId, data)
         -- If linkData is provided, compare it against the cached context.
         if linkData ~= nil then
             if type(linkData) == "function" then
-                local ok, result = pcall(linkData, data)
+                local value = ShopUI.GetItemValue(data)
+                local ok, result = pcall(linkData, data, value)
                 if ok then
                     linkData = result
                 else
@@ -615,7 +616,8 @@ function ShopNavigator:navigateInto(index)
             })
             return result
         elseif type(item.Action) == "function" then
-            local ok, result = pcall(item.Action, item)
+            local value = ShopUI.GetItemValue(item)
+            local ok, result = pcall(item.Action, item, value)
             if not ok then
                 self.onError("Action for item '" .. tostring(item.Id) .. "' failed: " .. tostring(result))
                 return false

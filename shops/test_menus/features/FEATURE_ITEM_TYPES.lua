@@ -128,12 +128,20 @@ local function getTestItemsMenus()
         local items = {}
 
         for i = 1, 10 do
-            table.insert(items, {
+            local newItem = {
                 Id = "TEST_ITEMS_" .. type .. "_ITEM_" .. i,
                 Type = type,
                 Label = item.Label .. " " .. i,
                 Data = getTestItemsItems(type)
-            })
+            }
+
+            if type == "STEPPER" then
+                newItem.Action = function(_, value)
+                    PostFeedTicker(string.format("Stepper value is %s", tostring(value)))
+                end
+            end
+
+            table.insert(items, newItem)
         end
 
         table.insert(menus, {
