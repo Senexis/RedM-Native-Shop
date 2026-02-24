@@ -22,6 +22,14 @@ AddEventHandler("native_shop:refresh_menu", function(menu)
     ShopUI.RefreshMenu(menu)
 end)
 
+AddEventHandler("native_shop:refresh_root", function(root)
+    ShopUI.RefreshRoot(root)
+end)
+
+AddEventHandler("native_shop:refresh_data", function(root, source)
+    ShopUI.RefreshData(root, source)
+end)
+
 AddEventHandler("native_shop:set_menu_footer", function(menu, header)
     ShopUI.SetFooterOverride(menu, nil, header)
 end)

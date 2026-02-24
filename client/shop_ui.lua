@@ -549,6 +549,16 @@ function ShopUI.RefreshMenu(id)
     ShopEvents.SetShopEventFlag(ShopEvents.FLAG_STATE_CHANGED)
 end
 
+function ShopUI.RefreshRoot(root)
+    ShopNavigator:refreshRoot(root)
+    ShopUI.RefreshMenu(root)
+end
+
+function ShopUI.RefreshData(root, source)
+    ShopNavigator:refreshDataSource(root, source)
+    ShopUI.RefreshMenu(root)
+end
+
 function ShopUI.RefreshAllItems()
     local currentItems = ShopNavigator:getCurrentItems()
 

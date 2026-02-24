@@ -533,6 +533,16 @@ function ItemDatabase:GetPedType()
     return 0
 end
 
+---Gets various info about horses
+function ItemDatabase:GetHorseInfo(model)
+    if not model and self:IsInGroup(`HORSE`) then model = self:GetModel() end
+    if not model then return nil end
+
+    local HORSE_DATA <const> = {
+
+    }
+end
+
 ---Checks if the item is a valid wardrobe outfit
 ---@return boolean
 function ItemDatabase:IsOutfit()
@@ -567,7 +577,7 @@ function ItemDatabase:ClothingSingleItemName()
         [`CI_CATEGORY_WARDROBE_BOOTS_ACCESSORIES`] = -647442474,
         [`CI_CATEGORY_WARDROBE_BUCKLE`] = -1669395156,
         [`CI_CATEGORY_WARDROBE_CHAPS`] = 2099263972,
-        [1545016984] = 2099263972, -- Chaps
+        [1545016984] = 2099263972,  -- Chaps
         [`CI_CATEGORY_WARDROBE_COATS`] = 1177470655,
         [-1080198344] = 1177470655, -- Coat
         [`CI_CATEGORY_WARDROBE_PONCHO`] = -768798238,

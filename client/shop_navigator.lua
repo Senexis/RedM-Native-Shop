@@ -462,6 +462,66 @@ function ShopNavigator:refreshCurrentPage()
     self:_rebuildCurrentItems()
 end
 
+--- Re-evaluates a dynamic root menu generator.
+--- Useful if external data affecting the menu structure has changed.
+--- If the refreshed root is the currently active one, the view is updated immediately.
+---@param rootId string The ID of the dynamic root to refresh.
+function ShopNavigator:refreshRoot(rootId)
+    if not self.generators[rootId] then
+        print("[NativeShop] Cannot refresh root '" .. rootId .. "': Not a registered dynamic generator.")
+        return
+    end
+
+    local context = self.generatorData[rootId]
+    local success, result = pcall(self.generators[rootId], context)
+
+    if success and result then
+        result.Id = rootId
+        self.menuMap[rootId] = {}
+        self.parentMap[rootId] = {}
+        self.allData[rootId] = result
+        self:_buildLookups(result, nil, rootId)
+
+        -- If the user is currently looking at this root, rebuild the view
+        if self.currentRootId == rootId then
+            self:_rebuildCurrentItems()
+        end
+    else
+        self.onError("Failed to refresh root '" .. rootId .. "': " .. tostring(result))
+    end
+end
+
+--- Clears cached data for a specific data source or all sources within a root.
+--- Does not immediately rebuild the UI unless it affects the active page.
+---@param rootId string The root ID containing the data source.
+---@param sourceName string|nil The specific source name to refresh. If nil, clears all for that root.
+function ShopNavigator:refreshDataSource(rootId, sourceName)
+    if not self.dataSources[rootId] then return end
+
+    -- Since data sources are currently getter functions, 'refreshing' mostly implies
+    -- ensuring that the next time they are called, they get fresh data.
+    -- If your architecture adds caching layers inside `dataSources`, clear them here.
+
+    -- If the current menu relies on this source, force a rebuild
+    if self.currentRootId == rootId then
+        local currentMenu = self:_getRawCurrentMenu()
+        if currentMenu and currentMenu.ItemSource then
+            if not sourceName or currentMenu.ItemSource == sourceName then
+                self:_rebuildCurrentItems()
+            end
+        end
+    end
+end
+
+--- Refreshes all aspects of the shop: generators and data sources.
+function ShopNavigator:refreshAll()
+    for rootId, _ in pairs(self.generators) do
+        self:refreshRoot(rootId)
+    end
+    -- If current view wasn't a generator, still refresh items in case of source changes
+    self:_rebuildCurrentItems()
+end
+
 --- Retrieves the Initial Root ID (Entry Point) of the current session.
 --- This represents the absolute bottom of the navigation stack.
 ---@return string|nil The initial root ID, or nil if nothing is active.

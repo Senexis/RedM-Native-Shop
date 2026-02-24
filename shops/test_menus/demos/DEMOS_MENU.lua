@@ -97,6 +97,15 @@ local data = {
                     }
                 },
                 {
+                    Id = "DEMO_STABLES",
+                    Label = "Stables",
+                    LinkMenuId = "DEMO_STABLES",
+                    LinkPageId = nil,
+                    Data = {
+                        ItemDescription = "A demo stables menu showcasing an example stables setup.",
+                    }
+                },
+                {
                     Id = "DEMO_MOONSHINE",
                     Label = "Moonshine",
                     LinkMenuId = "DEMO_MOONSHINE",
