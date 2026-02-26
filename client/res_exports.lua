@@ -9,10 +9,6 @@
 -- Shop event exports: Interact with native event loop
 -- ===================================================================
 
-exports("GetShopEventFlags", ShopEvents.GetShopEventFlags)
-exports("GetShopEventFlag", ShopEvents.GetShopEventFlag)
-exports("SetShopEventFlag", ShopEvents.SetShopEventFlag)
-exports("ClearShopEventFlag", ShopEvents.ClearShopEventFlag)
 exports("GetFocusedItemId", ShopEvents.GetFocusedItemId)
 exports("GetFocusedItemType", ShopEvents.GetFocusedItemType)
 exports("GetUnfocusedItemId", ShopEvents.GetUnfocusedItemId)

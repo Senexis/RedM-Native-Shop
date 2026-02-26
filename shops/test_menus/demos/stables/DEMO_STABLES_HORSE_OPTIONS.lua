@@ -90,7 +90,9 @@ local function getStablesMenu(data)
 
     return {
         Title = "STABLES",
-        Subtitle = "Manage Your Horse",
+        Subtitle = function ()
+            return string.format("Manage %s", nickname)
+        end,
         AllowWalking = true,
         RepositionCamera = true,
         Items = {

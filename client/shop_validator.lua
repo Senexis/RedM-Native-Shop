@@ -3,8 +3,8 @@ ShopValidator = {}
 local SCHEMAS <const> = {
     Menu = {
         Id = { type = { "string", "number" }, optional = true },
-        Title = { type = "string" },
-        Subtitle = { type = "string", optional = true },
+        Title = { type = { "string", "function" }, optional = true },
+        Subtitle = { type = { "string", "function" }, optional = true },
         Scene = { type = "string", optional = true },
         Validate = { type = "boolean", optional = true },
         AllowWalking = { type = "boolean", optional = true },
@@ -47,8 +47,8 @@ local SCHEMAS <const> = {
     Item = {
         Id = { type = { "string", "number" } },
         Scene = { type = "string", optional = true },
-        Title = { type = "string", optional = true },
-        Subtitle = { type = "string", optional = true },
+        Title = { type = { "string", "function" }, optional = true },
+        Subtitle = { type = { "string", "function" }, optional = true },
         Type = { type = "string", optional = true },
         Tab = { type = { "string", "number", "table" }, optional = true, items = { type = { "string", "number" } } },
         Disabled = { type = "boolean", optional = true },
@@ -538,7 +538,6 @@ function ShopValidator.Menu(data, id)
     if not Config.Validate then
         return data
     end
-    print("Validating menu data...")
     if type(data) ~= "table" then
         error("Expected table, got " .. type(data), 2)
     end
@@ -552,7 +551,6 @@ function ShopValidator.Item(data, id)
     if not Config.Validate then
         return data
     end
-    print("Validating item data...")
     if type(data) ~= "table" then
         error("Expected table, got " .. type(data), 2)
     end

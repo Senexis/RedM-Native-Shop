@@ -958,7 +958,7 @@ function ShopNavigator:getCurrentTitleEntry()
 
     local text = menu.Title or root.Title
     local baseId = menu.Id
-    local type = "MENU_TITLE"
+    local entryType = "MENU_TITLE"
 
     -- Check tabs
     if menu.Tabs and #menu.Tabs > 0 then
@@ -966,14 +966,25 @@ function ShopNavigator:getCurrentTitleEntry()
         if activeTab then
             text = activeTab.Title or text -- Use tab title, fallback to menu title
             baseId = activeTab.Id
-            type = "PAGE_TITLE"
+            entryType = "PAGE_TITLE"
+        end
+    end
+
+    if type(text) == "function" then
+        local ok, result = pcall(text)
+        if ok then
+            text = result
+        else
+            self.onError("Title function failed: " .. tostring(result))
+            text = nil
         end
     end
 
     return {
         Id = self:_getUniqueId(baseId),
         Text = text,
-        Type = type
+        Type = entryType,
+        Dynamic = type(text) == "function"
     }
 end
 
@@ -989,7 +1000,7 @@ function ShopNavigator:getCurrentSubtitleEntry()
     -- Priority: Tab Subtitle -> Tab Label -> Menu Subtitle -> Menu Label -> Root Subtitle -> Root Label
     local text = menu.Subtitle or menu.Label or root.Subtitle or root.Label
     local baseId = menu.Id
-    local type = "MENU_SUBTITLE"
+    local entryType = "MENU_SUBTITLE"
 
     -- Check tabs
     if menu.Tabs and #menu.Tabs > 0 then
@@ -997,13 +1008,24 @@ function ShopNavigator:getCurrentSubtitleEntry()
         if activeTab then
             text = activeTab.Subtitle or activeTab.Label or text
             baseId = activeTab.Id
-            type = "PAGE_SUBTITLE"
+            entryType = "PAGE_SUBTITLE"
+        end
+    end
+
+    if type(text) == "function" then
+        local ok, result = pcall(text)
+        if ok then
+            text = result
+        else
+            self.onError("Subtitle function failed: " .. tostring(result))
+            text = nil
         end
     end
 
     return {
         Id = self:_getUniqueId(baseId),
         Text = text,
-        Type = type
+        Type = entryType,
+        Dynamic = type(text) == "function"
     }
 end

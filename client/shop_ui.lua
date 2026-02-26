@@ -46,16 +46,20 @@ local promptTypes = {
     "Back",
 }
 
-local function deepMerge(target, source)
-    for k, v in pairs(source) do
-        if type(v) == "table" then
-            if type(target[k]) == "table" then
-                deepMerge(target[k], v)
-            else
-                target[k] = deepMerge({}, v)
+local function applyDefaults(target, defaults)
+    for key, value in pairs(defaults) do
+        if type(value) == "table" then
+            if target[key] == nil then
+                target[key] = {}
             end
-        elseif v ~= nil then
-            target[k] = v
+
+            if type(target[key]) == "table" then
+                applyDefaults(target[key], value)
+            end
+        else
+            if target[key] == nil then
+                target[key] = value
+            end
         end
     end
     return target
@@ -99,7 +103,8 @@ ShopUI.bindings = {
 ShopUI.state = {
     suppressFocusEvent = false,
     suppressUnfocusEvent = false,
-    currentItemEntries = {},
+    currentItemEntriesByIndex = {},
+    currentItemEntriesById = {},
     disabledOverrides = {},
     footerMenuOverrides = {},
     footerItemOverrides = {},
@@ -163,7 +168,7 @@ function ShopUI.Initialize()
     ShopUI.bindings.dscSceneBusiness = sceneBusiness
 end
 
-function ShopUI.CreateTextEntry(type, id, text)
+function ShopUI.CreateTextEntry(type, id, text, alwaysCreate)
     local key = string.format(
         "%s_%s_%s",
         ShopNavigator:getRootMenuId() or "NSUI",
@@ -171,7 +176,7 @@ function ShopUI.CreateTextEntry(type, id, text)
         tostring(id):upper()
     )
 
-    if DoesTextLabelExist(key) ~= 1 then
+    if DoesTextLabelExist(key) ~= 1 or alwaysCreate then
         AddTextEntry(key, text)
     end
 
@@ -196,7 +201,7 @@ function ShopUI.CreateSwatchForItem(item, index)
 
     local swatchTxd, swatchTxn = itemData:GetSwatchTexture(index)
 
-    return deepMerge(item, {
+    return applyDefaults(item, {
         Data = {
             TextureDictionary = swatchTxd,
             Texture = swatchTxn,
@@ -215,7 +220,7 @@ function ShopUI.ProcessAutoItem(item)
         error(string.format("Invalid item ID %s", itemKey))
     end
 
-    local mergeItem = {
+    local defaults = {
         Data = {
             RpgEffects = nil,
             Weather = nil
@@ -223,17 +228,17 @@ function ShopUI.ProcessAutoItem(item)
     }
 
     if itemData:GetLabelHash(true) ~= 0 then
-        mergeItem.Label = itemData:GetLabel(true)
+        defaults.Label = itemData:GetLabel(true)
     end
 
     if itemData:GetDescriptionHash(true) ~= 0 then
-        mergeItem.Data.ItemDescription = itemData:GetDescription(true)
+        defaults.Data.ItemDescription = itemData:GetDescription(true)
     end
 
-    mergeItem.Data.RpgEffects = itemData:GetUiRpgStats()
+    defaults.Data.RpgEffects = itemData:GetUiRpgStats()
 
     if not itemData:IsOutfit() and itemData:GetWarmth() then
-        mergeItem.Data.Weather = {
+        defaults.Data.Weather = {
             Visible = true,
             Enabled = true,
             Opacity = 1,
@@ -241,7 +246,7 @@ function ShopUI.ProcessAutoItem(item)
         }
     end
 
-    return deepMerge(item, mergeItem)
+    return applyDefaults(item, defaults)
 end
 
 function ShopUI.UpdateTitle()
@@ -249,7 +254,7 @@ function ShopUI.UpdateTitle()
     local hash = ""
 
     if entry and entry.Text then
-        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text)
+        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text, entry.Dynamic)
     end
 
     if DatabindingIsEntryValid(ShopUI.bindings.dshTitle) == 1 then
@@ -264,7 +269,7 @@ function ShopUI.UpdateSubheader()
     local hash = ""
 
     if entry and entry.Text then
-        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text)
+        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text, entry.Dynamic)
     end
 
     if DatabindingIsEntryValid(ShopUI.bindings.dshSubheader) == 1 then
@@ -539,13 +544,13 @@ function ShopUI.RefreshMenu(id)
 
     -- Refocuses the current item to update the scene UI
     ShopUI.state.suppressUnfocusEvent = true
-    ShopEvents.SetShopEventFlag(ShopEvents.FLAG_UNFOCUSED)
+    ShopEvents.SetEventFlag(ShopEvents.FLAG_UNFOCUSED)
 
     ShopUI.state.suppressFocusEvent = true
-    ShopEvents.SetShopEventFlag(ShopEvents.FLAG_FOCUSED)
+    ShopEvents.SetEventFlag(ShopEvents.FLAG_FOCUSED)
 
     -- Trigger a state changed event so we can update the scene UI
-    ShopEvents.SetShopEventFlag(ShopEvents.FLAG_STATE_CHANGED)
+    ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
 end
 
 function ShopUI.RefreshRoot(root)
@@ -566,20 +571,24 @@ function ShopUI.RefreshAllItems()
     end
 end
 
-function ShopUI.RefreshItem(index)
-    local entry = ShopUI.state.currentItemEntries[index]
-    if not entry or entry == 0 then return end
+function ShopUI.RefreshItem(idOrIndex)
+    local entry, item = nil, nil
 
-    local item = ShopNavigator:getItemByIndex(index)
-    if not item or DatabindingIsEntryValid(entry) ~= 1 then
-        print("[NativeShop] Warning: Attempted to refresh invalid item at index " .. tostring(index))
-        return
+    if type(idOrIndex) == "number" then
+        entry = ShopUI.state.currentItemEntriesByIndex[idOrIndex]
+        item = ShopNavigator:getItemByIndex(idOrIndex)
+    elseif type(idOrIndex) == "string" then
+        entry = ShopUI.state.currentItemEntriesById[idOrIndex]
+        item = ShopNavigator:getItemById(idOrIndex)
     end
+
+    if not item then return end
+    if not entry or DatabindingIsEntryValid(entry) ~= 1 then return end
 
     local itemType = item.Type or "TEXT"
     local entryType = ShopEvents.GetItemType(entry)
     if itemType ~= entryType then
-        print("[NativeShop] Warning: Item type mismatch on refresh for item at index " .. tostring(index))
+        print("[NativeShop] Warning: Item type mismatch on refresh for item " .. tostring(idOrIndex))
         print("  You should only refresh items when there are items of a single type")
         return
     end
@@ -1451,8 +1460,8 @@ end
 function ShopUI.Builder.BuildClothingItemInfoBoxScene(menu)
     ShopUI.Events.HandleClothingItemInfoBoxFocus(menu)
 
-    ShopEvents.SetShopEventFlag(ShopEvents.FLAG_FOCUSED)
-    ShopEvents.SetShopEventFlag(ShopEvents.FLAG_STATE_CHANGED)
+    ShopEvents.SetEventFlag(ShopEvents.FLAG_FOCUSED)
+    ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
 
     return true
 end
@@ -1466,8 +1475,8 @@ end
 function ShopUI.Builder.BuildHorseStatInfoBoxScene(menu)
     ShopUI.Events.HandleHorseStatInfoBoxFocus(menu)
 
-    ShopEvents.SetShopEventFlag(ShopEvents.FLAG_FOCUSED)
-    ShopEvents.SetShopEventFlag(ShopEvents.FLAG_STATE_CHANGED)
+    ShopEvents.SetEventFlag(ShopEvents.FLAG_FOCUSED)
+    ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
 
     return true
 end
@@ -1656,7 +1665,8 @@ function ShopUI.Builder.TryAddItemToSlot(index)
         if type ~= 0 then
             DatabindingInsertUiItemToListFromContextHashAlias(ShopUI.bindings.dsuItemList, index, type, entry)
             VirtualCollectionItemAdd(ShopEvents.state.collectionId, index, type, entry)
-            ShopUI.state.currentItemEntries[index + 1] = entry
+            ShopUI.state.currentItemEntriesByIndex[index + 1] = entry
+            ShopUI.state.currentItemEntriesById[item.Id] = entry
 
             return true
         else

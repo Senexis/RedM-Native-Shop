@@ -107,6 +107,7 @@ local function getBasicShopItems(filter)
                 Id = "SHOP_ITEM_" .. item.ID,
                 Type = "INVENTORY",
                 Auto = item.ID,
+                Label = purchase_quantity > 1 and string.format("%dx %s", purchase_quantity, GetStringFromHashKey(item.ID)) or nil,
                 Footer = footer,
                 Disabled = item.Stock <= 0,
                 Prompts = {
