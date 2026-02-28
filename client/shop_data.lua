@@ -198,11 +198,8 @@ function ShopData.MaintainEvents()
         end
 
         local action = ShopEvents.state.lastAction
-        if action == "GENERIC_SHOP_UI_SELECT" then
-            ShopUI.Events.HandleItemSelect()
-        else
-            ShopUI.Events.HandleItemAction(action)
-        end
+        local actionParameter = ShopEvents.state.lastActionParameter
+        ShopUI.Events.HandleItemSelect(action, actionParameter)
     end
 
     -- Happens when an item is unfocused/unhighlighted

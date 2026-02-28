@@ -17,7 +17,8 @@ ShopEvents = {
 
 ShopEvents.state = {
     eventFlags = 0,
-    lastAction = 0,
+    lastAction = nil,
+    lastActionParameter = nil,
     flagUiBypass = false,
     flagUiEntry = false,
     selectedIndex = 0,
@@ -261,11 +262,22 @@ Citizen.CreateThread(function()
                     ShopEvents.state.selectedDatastore = datastoreId
                     ShopEvents.state.selectedIndex = intParameter
                     ShopEvents.state.selectedItem = ShopEvents.GetSelectedItemId()
-                    ShopEvents.state.lastAction = hashParameterType
 
                     if hashParameterType == "GENERIC_SHOP_UI_EXIT" then
                         ShopEvents.SetEventFlag(ShopEvents.FLAG_EXIT)
                     end
+
+                    local actionParameter = nil
+                    if hashParameterType == "GENERIC_SHOP_UI_SELECT_MODIFY" then
+                        if IsControlJustPressed(0, "INPUT_GAME_MENU_TAB_LEFT") then
+                            actionParameter = -1
+                        elseif IsControlJustPressed(0, "INPUT_GAME_MENU_TAB_RIGHT") then
+                            actionParameter = 1
+                        end
+                    end
+
+                    ShopEvents.state.lastAction = hashParameterType
+                    ShopEvents.state.lastActionParameter = actionParameter
 
                     ShopEvents.SetEventFlag(ShopEvents.FLAG_ITEM_SELECTED)
                     ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)

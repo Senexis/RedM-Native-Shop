@@ -684,80 +684,102 @@ function ShopUI.GetItemValue(item)
     return nil
 end
 
-function ShopUI.Events.HandleItemSelect()
-    local type = ShopEvents.GetSelectedItemType()
+function ShopUI.Events.HandleItemSelect(event, eventParameter)
+    local EVENT_MAP <const> = {
+        GENERIC_SHOP_UI_SELECT           = { key = "select", prompt = "Select" },
+        GENERIC_SHOP_UI_SECONDARY_SELECT = { key = "select", prompt = "Select" },
+        GENERIC_SHOP_UI_EXIT             = { key = "back", prompt = "Back" },
+        GENERIC_SHOP_UI_SELECT_OPTION    = { key = "option", prompt = "Option" },
+        GENERIC_SHOP_UI_SELECT_TOGGLE    = { key = "toggle", prompt = "Toggle" },
+        GENERIC_SHOP_UI_SELECT_INFO      = { key = "info", prompt = "Info" },
+        GENERIC_SHOP_UI_SELECT_MODIFY    = { key = "modify", prompt = "Modify" },
+        DATA_ADJUSTABLE_CHANGED          = { key = "adjust", prompt = "Adjust" },
+    }
+
+    local config = EVENT_MAP[event]
+    if not config then return end
+
     local index = ShopEvents.state.selectedIndex + 1
     local item = ShopNavigator:getItemByIndex(index)
     if not item then return end
 
-    -- Any item can be set as a menu item
-    if ShopUI.Events.HandleMenuItemSelect() then
+    local itemType = ShopEvents.GetSelectedItemType()
+    local itemTarget = ShopEvents.GetSelectedTargetMenu()
+    local actionKey = config.key
+    local isSubMenuNav = (actionKey == "select" and itemTarget > 0)
+
+    if isSubMenuNav then
         TriggerEvent("native_shop:menu_selected", {
-            ID = item.Id,
-            Type = type,
-            Index = index,
-            Item = item,
+            ID = item.Id, Type = itemType, Index = index, Item = item
         })
     else
         TriggerEvent("native_shop:item_selected", {
-            ID = item.Id,
-            Type = type,
-            Index = index,
-            Item = item,
+            ID = item.Id, Type = itemType, Index = index, Item = item
         })
     end
 
     TriggerEvent("native_shop:item_action", {
         ID = item.Id,
-        Type = type,
+        Type = itemType,
         Index = index,
         Item = item,
-        Action = "select",
-        ActionParameter = nil,
+        Action = actionKey,
+        ActionParameter = eventParameter,
     })
-end
 
-function ShopUI.Events.HandleItemAction(action)
-    local type = ShopEvents.GetSelectedItemType()
-    local index = ShopEvents.state.selectedIndex + 1
-    local item = ShopNavigator:getItemByIndex(index)
-    if not item then return end
-
-    -- The game scripts "nudges" palette selects to trigger regular select events
-    if action == "GENERIC_SHOP_UI_SECONDARY_SELECT" and item.Type == "PALETTE" then
-        return ShopUI.Events.HandleItemSelect()
+    local function applyNavigation(targetIndex)
+        if type(targetIndex) == "number" and targetIndex > 0 then
+            ShopUI.NextScene()
+            ShopData.state.entryFocusIndex = targetIndex
+        end
     end
 
-    local actionToEvent = {
-        GENERIC_SHOP_UI_SECONDARY_SELECT = "secondary",
-        GENERIC_SHOP_UI_SELECT_OPTION = "option",
-        GENERIC_SHOP_UI_SELECT_TOGGLE = "toggle",
-        GENERIC_SHOP_UI_SELECT_INFO = "info",
-        GENERIC_SHOP_UI_SELECT_MODIFY = "modify",
-    }
+    if isSubMenuNav then
+        local result = ShopNavigator:navigateInto(itemTarget)
+        if type(result) ~= "number" or result <= 0 then
+            print("[NativeShop] Failed to navigate into menu: " .. tostring(itemTarget))
+            return
+        end
 
-    TriggerEvent("native_shop:item_action", {
-        ID = item.Id,
-        Type = type,
-        Index = index,
-        Item = item,
-        Action = actionToEvent[action] or "unknown",
-        ActionParameter = nil,
-    })
-end
-
-function ShopUI.Events.HandleMenuItemSelect()
-    local target = ShopEvents.GetSelectedTargetMenu()
-    local result = ShopNavigator:navigateInto(target)
-
-    if type(result) == "number" then
-        ShopUI.NextScene()
-        ShopData.state.entryFocusIndex = result
-
-        return true
+        applyNavigation(result)
+        return
     end
 
-    return false
+    local prompts = item.Prompts or {}
+    local promptData = prompts[config.prompt] or {}
+
+    local action = promptData.Action
+    if config.prompt == "Select" and not action then
+        action = item.Action
+    end
+
+    if not action then return end
+    local actionResult = nil
+
+    if action == "CLOSE" then
+        ShopUI.Exit()
+        return
+    elseif action == "HIDE" then
+        ShopUI.Hide()
+        return
+    elseif action == "BACK" then
+        actionResult = ShopNavigator:navigateBack() or 1
+    elseif action == "ROOT" then
+        actionResult = ShopNavigator:navigateRoot() or 1
+    elseif type(action) == "function" then
+        local value = ShopUI.GetItemValue(item) or eventParameter
+        local ok, result = pcall(action, item, value, actionKey)
+        if not ok then
+            print(string.format("[NativeShop] Error executing action for item %s: %s", tostring(item.Id), tostring(result)))
+            return
+        end
+        actionResult = result
+    else
+        print("[NativeShop] Item '" .. tostring(item.Id) .. "' has an invalid Action type.")
+        return
+    end
+
+    applyNavigation(actionResult)
 end
 
 function ShopUI.Events.HandleItemFocus()
@@ -1381,14 +1403,7 @@ function ShopUI.Events.HandleStepperChange()
         })
     end
 
-    TriggerEvent("native_shop:item_action", {
-        ID = id,
-        Type = item.Type,
-        Index = focusIndex,
-        Item = item,
-        Action = "adjust",
-        ActionParameter = change,
-    })
+    ShopUI.Events.HandleItemSelect("DATA_ADJUSTABLE_CHANGED", change)
 
     return true
 end
@@ -1706,16 +1721,13 @@ function ShopUI.Builder.BuildItem(index, item)
     end
 
     local entry = DatabindingAddDataContainer(ShopUI.bindings.dscItemListEntries, item.Id)
+    DatabindingAddDataInt(entry, "ItemIndex", index + 1)
     local result = ShopUI.Builder.FillItem(entry, item)
 
     -- Log an error if the item failed to build
     if result == false then
         print("[NativeShop] Error: Failed to build item of type ", item.Type, " at index ", index)
         return false
-    end
-
-    if item.HasNavigation then
-        DatabindingAddDataInt(entry, "MenuIndex", index + 1)
     end
 
     return result
@@ -1727,6 +1739,11 @@ function ShopUI.Builder.FillItem(entry, item)
         item = processResult
     else
         print("[NativeShop] Failed to process auto item for item ", item.Id, " with error: ", processResult)
+    end
+
+    local itemIndex = DatabindingReadDataIntFromParent(entry, "ItemIndex")
+    if item.HasNavigation and itemIndex > 0 then
+        DatabindingAddDataInt(entry, "MenuIndex", itemIndex)
     end
 
     local callbacks = {
@@ -2094,9 +2111,23 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     local adjustData = prompts.Adjust or {}
     local modifyData = prompts.Modify or {}
 
+    local hasSelectAction = item.HasNavigation or item.Action or type(selectData) == "table" and selectData.Action or false
+    local hasOptionAction = type(optionData) == "table" and optionData.Action or false
+    local hasToggleAction = type(toggleData) == "table" and toggleData.Action or false
+    local hasInfoAction = type(infoData) == "table" and infoData.Action or false
+    local hasAdjustAction = type(adjustData) == "table" and adjustData.Action or false
+    local hasModifyAction = type(modifyData) == "table" and modifyData.Action or false
+
+    local isSelectVisible = hasSelectAction or type(selectData) == "string" or type(selectData.Label) == "string" or selectData.Visible == true
+    local isOptionVisible = hasOptionAction or type(optionData) == "string" or type(optionData.Label) == "string" or optionData.Visible == true
+    local isToggleVisible = hasToggleAction or type(toggleData) == "string" or type(toggleData.Label) == "string" or toggleData.Visible == true
+    local isInfoVisible = hasInfoAction or type(infoData) == "string" or type(infoData.Label) == "string" or infoData.Visible == true
+    local isAdjustVisible = hasAdjustAction or type(adjustData) == "string" or type(adjustData.Label) == "string" or adjustData.Visible == true
+    local isModifyVisible = hasModifyAction or type(modifyData) == "string" or type(modifyData.Label) == "string" or modifyData.Visible == true
+
     -- Enter | A
     -- Select is always visible for submenu/context items
-    if type(selectData) == "string" or selectData.Visible == true or item.HasNavigation then
+    if hasSelectAction or isSelectVisible then
         local label, disabled, held = nil, nil, nil
 
         if type(selectData) == "string" then
@@ -2118,7 +2149,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     end
 
     -- Space | X
-    if type(optionData) == "string" or optionData.Visible == true then
+    if hasOptionAction or isOptionVisible then
         local label, disabled, held = nil, nil, nil
 
         if type(optionData) == "string" then
@@ -2126,7 +2157,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
             disabled = false
             held = false
         else
-            label = optionData.Label or "Missing Option Label"
+            label = optionData.Label or "Option"
             disabled = optionData.Disabled == true
             held = optionData.Held == true
         end
@@ -2140,7 +2171,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     end
 
     -- F | Y
-    if type(toggleData) == "string" or toggleData.Visible == true then
+    if hasToggleAction or isToggleVisible then
         local label, disabled, held = nil, nil, nil
 
         if type(toggleData) == "string" then
@@ -2148,7 +2179,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
             disabled = false
             held = false
         else
-            label = toggleData.Label or "Missing Toggle Label"
+            label = toggleData.Label or "Toggle"
             disabled = toggleData.Disabled == true
             held = toggleData.Held == true
         end
@@ -2162,7 +2193,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     end
 
     -- Tab | RS
-    if type(infoData) == "string" or infoData.Visible == true then
+    if hasInfoAction or isInfoVisible then
         local label, disabled, held = nil, nil, nil
 
         if type(infoData) == "string" then
@@ -2170,7 +2201,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
             disabled = false
             held = false
         else
-            label = infoData.Label or "Missing Info Label"
+            label = infoData.Label or "Info"
             disabled = infoData.Disabled == true
             held = infoData.Held == true
         end
@@ -2188,7 +2219,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     end
 
     -- Q/E | LB/RB
-    if type(modifyData) == "string" or modifyData.Visible == true then
+    if hasModifyAction or isModifyVisible then
         local label, disabled, held = nil, nil, nil
 
         if type(modifyData) == "string" then
@@ -2196,7 +2227,7 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
             disabled = false
             held = false
         else
-            label = modifyData.Label or "Missing Modify Label"
+            label = modifyData.Label or "Modify"
             disabled = modifyData.Disabled == true
             held = modifyData.Held == true
         end
@@ -2217,39 +2248,39 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     -- Adjust may be enabled or visible through the menu instead of the item
     -- Adjust is always visible in press mode when using a stepper item
     -- Even when the item is a stepper item, the label can be customized
-    local adjustLabel, adjustDisabled, adjustHeld = nil, nil, nil
-    local adjustVisible = false
-
-    if type(adjustData) == "string" then
-        adjustLabel = adjustData
-        adjustDisabled = false
-        adjustHeld = false
-        adjustVisible = true
-    else
-        adjustLabel = adjustData.Label or GetStringFromHashKey("IB_ADJUST")
-        adjustDisabled = adjustData.Disabled == true
-        adjustHeld = adjustData.Held == true
-        adjustVisible = adjustData.Visible == true
-    end
-
-    if adjustHeld == true then
-        print("[NativeShop] Warning: Adjust prompt cannot be held. Ignoring 'Held' property.")
-    end
+    local adjustDisabledOverride = false
+    local adjustVisibleOverride = false
 
     if menu.Scene == "ITEM_LIST_SLIDER" then
-        adjustDisabled = adjustDisabled == true or slider.Disabled == true or sceneSlider.Disabled == true
-        adjustVisible = adjustVisible == true or slider.Visible or sceneSlider.Visible or false
+        adjustDisabledOverride = slider.Disabled == true or sceneSlider.Disabled == true
+        adjustVisibleOverride = slider.Visible or sceneSlider.Visible or false
     elseif menu.Scene == "ITEM_LIST_COLOUR_PALETTE" then
-        adjustDisabled = adjustDisabled == true or not palette.Items or #palette.Items < 1
-        adjustVisible = adjustVisible == true or not adjustDisabled
+        adjustDisabledOverride = not palette.Items or #palette.Items < 1
+        adjustVisibleOverride = not adjustDisabledOverride
     elseif itemType == "STEPPER" and itemData.StepperVisible then
-        adjustDisabled = adjustDisabled == true or not itemData.StepperVisible
-        adjustVisible = adjustVisible == true or not adjustDisabled
+        adjustDisabledOverride = not itemData.StepperVisible
+        adjustVisibleOverride = not adjustDisabledOverride
     end
 
-    if adjustVisible then
-        ShopUI.Prompts.SetPromptLabel(5, adjustLabel)
-        ShopUI.Prompts.SetPromptEnabled(5, not isItemDisabled and not adjustDisabled)
+    if hasAdjustAction or isAdjustVisible or adjustVisibleOverride then
+        local label, disabled, held = nil, nil, nil
+
+        if type(adjustData) == "string" then
+            label = adjustData
+            disabled = adjustDisabledOverride == true
+            held = false
+        else
+            label = adjustData.Label or "Adjust"
+            disabled = adjustDisabledOverride == true or adjustData.Disabled == true
+            held = adjustData.Held == true
+        end
+
+        if held == true then
+            print("[NativeShop] Warning: Adjust prompt cannot be held. Ignoring 'Held' property.")
+        end
+
+        ShopUI.Prompts.SetPromptLabel(5, label)
+        ShopUI.Prompts.SetPromptEnabled(5, not isItemDisabled and not disabled)
         ShopUI.Prompts.SetPromptVisible(5, true)
         ShopUI.Prompts.SetPromptHeld(5, false)
     else

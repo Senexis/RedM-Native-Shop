@@ -125,6 +125,7 @@ local SCHEMAS <const> = {
         Visible = { type = "boolean", optional = true },
         Held = { type = "boolean", optional = true },
         Label = { type = "string", optional = true },
+        Action = { type = { "string", "function" }, optional = true },
     },
     Data = {
         -- Item

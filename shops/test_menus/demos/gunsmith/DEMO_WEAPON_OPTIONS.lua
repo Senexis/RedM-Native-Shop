@@ -41,6 +41,9 @@ local function getSwatches(components)
             Texture = txn,
             Owned = true,
             Equipped = i == 1,
+            Metadata = {
+                Component = component,
+            }
         })
 
         ::continue::
@@ -49,14 +52,12 @@ local function getSwatches(components)
 end
 
 local function getSwatchAction(components)
-    return function(item)
-        local value = item.Data.Palette.Value or 1
+    return function(item, value)
         local swatches = getSwatches(components)
-
         local swatch = swatches[value]
         if not swatch then return end
 
-        PostFeedTicker(string.format("Selected %s", swatch.Id))
+        PostFeedTicker(string.format("Selected %s %s", item.Label, swatch.Metadata.Component))
     end
 end
 

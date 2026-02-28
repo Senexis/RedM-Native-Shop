@@ -180,8 +180,6 @@ function ShopNavigator:_processItem(itemData, menuId)
         end
     elseif processedItem.LinkMenuId then
         processedItem.HasNavigation = true
-    elseif processedItem.Action then
-        processedItem.HasNavigation = true
     end
 
     return processedItem
@@ -668,50 +666,6 @@ function ShopNavigator:navigateInto(index)
         return result
     end
 
-    if item.Action then
-        if item.Action == "CLOSE" then
-            TriggerEvent("native_shop:close")
-            return nil
-        elseif item.Action == "HIDE" then
-            TriggerEvent("native_shop:hide")
-            return nil
-        elseif item.Action == "BACK" then
-            return self:navigateBack() or 1
-        elseif item.Action == "ROOT" then
-            -- Find the absolute bottom of the Root Stack (the main application entry point)
-            local targetId = self:getInitialRootId()
-
-            if not targetId then
-                self.onError("Could not determine Root ID.")
-                return false
-            end
-
-            -- Ensure hard reset to root by clearing stack manually
-            self.rootStack = {}
-            self.history = {}
-
-            local result = self:open(targetId)
-            TriggerEvent("native_shop:menu_navigated", {
-                RootId = self.currentRootId,
-                Menu = self:getCurrentMenu(),
-                Index = result,
-                Direction = "forward"
-            })
-            return result
-        elseif type(item.Action) == "function" then
-            local value = ShopUI.GetItemValue(item)
-            local ok, result = pcall(item.Action, item, value)
-            if not ok then
-                self.onError("Action for item '" .. tostring(item.Id) .. "' failed: " .. tostring(result))
-                return false
-            end
-            return result
-        else
-            print("[NativeShop] Item '" .. tostring(item.Id) .. "' has an invalid Action type.")
-            return nil
-        end
-    end
-
     if item.HasNavigation then
         self:_saveStateToHistory(index)
         local result = self:_setMenuState(item.Id, self.currentRootId)
@@ -768,6 +722,32 @@ function ShopNavigator:navigateBack()
 
     -- 3. No history left, we are at the top level
     return nil
+end
+
+--- Navigates directly to the root menu, clearing all history and stacks.
+--- Useful for "Home" buttons or resetting the shop state.
+---@return number|nil The focus index for the root menu, or nil if no root is available.
+function ShopNavigator:navigateRoot()
+    -- Find the absolute bottom of the Root Stack (the main application entry point)
+    local targetId = self:getInitialRootId()
+
+    if not targetId then
+        self.onError("Could not determine Root ID.")
+        return nil
+    end
+
+    -- Ensure hard reset to root by clearing stack manually
+    self.rootStack = {}
+    self.history = {}
+
+    local result = self:open(targetId)
+    TriggerEvent("native_shop:menu_navigated", {
+        RootId = self.currentRootId,
+        Menu = self:getCurrentMenu(),
+        Index = result,
+        Direction = "forward"
+    })
+    return result
 end
 
 --- Jumps to a specific tab by its 1-based index.
