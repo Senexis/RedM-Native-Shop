@@ -168,15 +168,22 @@ function ShopData.MaintainEvents()
 
     -- Happens when navigating to a new page/tab within the current scene
     if ShopData.GetEventFlag(ShopEvents.FLAG_NEXT_PAGE) or ShopData.GetEventFlag(ShopEvents.FLAG_FILTER_CHANGED) then
+        local collectionId = ShopEvents.state.collectionId
         local index = DatabindingReadDataIntFromParent(ShopUI.bindings.dscMain, "PageFilterCurrentPageIndex")
         local result = ShopNavigator:navigateTabs(index + 1)
 
         if result then
             ShopUI.UpdateSubheader()
-            ShopUI.Virtuals.ResetCollection()
+
+            if VirtualCollectionExists(collectionId) then
+                VirtualCollectionReset(collectionId)
+            else
+                print("[NativeShop] Collection does not exist: " .. tostring(collectionId))
+            end
+
             ShopData.state.entryFocusIndex = 1
             ShopUI.state.currentItemEntriesByIndex = {}
-            ShopUI.state.currentItemEntriesById = {}
+            ShopUI.state.currentItemIndecesById = {}
         else
             print("[NativeShop] Selected tab index '" .. index .. "' is invalid.")
         end
@@ -191,7 +198,7 @@ function ShopData.MaintainEvents()
                 ShopUI.PrevScene()
                 ShopData.state.entryFocusIndex = result
                 ShopUI.state.currentItemEntriesByIndex = {}
-                ShopUI.state.currentItemEntriesById = {}
+                ShopUI.state.currentItemIndecesById = {}
             else
                 ShopUI.Exit()
             end
@@ -241,7 +248,7 @@ function ShopData.MaintainEvents()
             ShopEvents.state.collectionRequestParameter
         )
 
-        if not result then
+        if type(result) == "number" and result <= 0 then
             print("[NativeShop] Failed to add items to collection:")
             print("  Start Index: " .. tostring(ShopEvents.state.collectionStartIndex))
             print("  Request Parameter: " .. tostring(ShopEvents.state.collectionRequestParameter))

@@ -104,7 +104,7 @@ ShopUI.state = {
     suppressFocusEvent = false,
     suppressUnfocusEvent = false,
     currentItemEntriesByIndex = {},
-    currentItemEntriesById = {},
+    currentItemIndecesById = {},
     disabledOverrides = {},
     footerMenuOverrides = {},
     footerItemOverrides = {},
@@ -572,24 +572,33 @@ function ShopUI.RefreshAllItems()
 end
 
 function ShopUI.RefreshItem(idOrIndex)
-    local entry, item = nil, nil
+    local entry, index = nil, nil
+    if type(idOrIndex) == "string" then
+        local entryIndex = ShopUI.state.currentItemIndecesById[idOrIndex]
+        if not entryIndex then return end
 
-    if type(idOrIndex) == "number" then
+        entry = ShopUI.state.currentItemEntriesByIndex[entryIndex]
+        index = entryIndex
+    else
         entry = ShopUI.state.currentItemEntriesByIndex[idOrIndex]
-        item = ShopNavigator:getItemByIndex(idOrIndex)
-    elseif type(idOrIndex) == "string" then
-        entry = ShopUI.state.currentItemEntriesById[idOrIndex]
-        item = ShopNavigator:getItemById(idOrIndex)
+        index = idOrIndex
     end
 
-    if not item then return end
     if not entry or DatabindingIsEntryValid(entry) ~= 1 then return end
+
+    local item = ShopNavigator:getItemByIndex(idOrIndex)
+    if not item then return end
 
     local itemType = item.Type or "TEXT"
     local entryType = ShopEvents.GetItemType(entry)
     if itemType ~= entryType then
-        print("[NativeShop] Warning: Item type mismatch on refresh for item " .. tostring(idOrIndex))
-        print("  You should only refresh items when there are items of a single type")
+        local collectionId = ShopEvents.state.collectionId
+        if VirtualCollectionExists(collectionId) then
+            ShopData.state.entryFocusIndex = index
+            VirtualCollectionReset(collectionId)
+        else
+            print("[NativeShop] Collection does not exist: " .. tostring(collectionId))
+        end
         return
     end
 
@@ -708,11 +717,11 @@ function ShopUI.Events.HandleItemSelect(event, eventParameter)
     local actionKey = config.key
     local isSubMenuNav = (actionKey == "select" and itemTarget > 0)
 
-    if isSubMenuNav then
+    if actionKey == "select" and isSubMenuNav then
         TriggerEvent("native_shop:menu_selected", {
             ID = item.Id, Type = itemType, Index = index, Item = item
         })
-    else
+    elseif actionKey == "select" then
         TriggerEvent("native_shop:item_selected", {
             ID = item.Id, Type = itemType, Index = index, Item = item
         })
@@ -1624,6 +1633,7 @@ end
 
 function ShopUI.Builder.AddItemsToSceneWithinRange(start, range)
     local items = ShopNavigator:getCurrentItems()
+    if #items == 0 then return false end
 
     -- Normalize negative start positions (e.g., -1 = last item)
     local normalizedStart = start
@@ -1681,7 +1691,7 @@ function ShopUI.Builder.TryAddItemToSlot(index)
             DatabindingInsertUiItemToListFromContextHashAlias(ShopUI.bindings.dsuItemList, index, type, entry)
             VirtualCollectionItemAdd(ShopEvents.state.collectionId, index, type, entry)
             ShopUI.state.currentItemEntriesByIndex[index + 1] = entry
-            ShopUI.state.currentItemEntriesById[item.Id] = entry
+            ShopUI.state.currentItemIndecesById[item.Id] = index + 1
 
             return true
         else
@@ -2041,36 +2051,6 @@ function ShopUI.Builder.FillSwatchItem(entry, item)
     DatabindingAddDataBool(entry, "uiItemNew", data.IsNew or false)
 
     return entry
-end
-
-function ShopUI.Virtuals.CollectionExists()
-    local collectionId = ShopEvents.state.collectionId
-
-    if not collectionId or collectionId <= 0 then
-        return false
-    end
-
-    return VirtualCollectionExists(collectionId) == 1
-end
-
-function ShopUI.Virtuals.ResetCollection()
-    if not ShopUI.Virtuals.CollectionExists() then return end
-    VirtualCollectionReset(ShopEvents.state.collectionId)
-end
-
-function ShopUI.Virtuals.SetSize(size)
-    if not ShopUI.Virtuals.CollectionExists() then return end
-    VirtualCollectionSetSize(ShopEvents.state.collectionId, size)
-end
-
-function ShopUI.Virtuals.SetEntryIndex(index)
-    if not ShopUI.Virtuals.CollectionExists() then return end
-    VirtualCollectionSetInterestIndex(ShopEvents.state.collectionId, index)
-end
-
-function ShopUI.Virtuals.AddItem(index, type, item)
-    if not ShopUI.Virtuals.CollectionExists() then return end
-    VirtualCollectionItemAdd(ShopEvents.state.collectionId, index, type, item)
 end
 
 function ShopUI.Prompts.ClearPrompt(type)
