@@ -586,7 +586,7 @@ function ShopUI.RefreshItem(idOrIndex)
 
     if not entry or DatabindingIsEntryValid(entry) ~= 1 then return end
 
-    local item = ShopNavigator:getItemByIndex(idOrIndex)
+    local item = ShopNavigator:getItemByIndex(index)
     if not item then return end
 
     local itemType = item.Type or "TEXT"
