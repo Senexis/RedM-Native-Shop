@@ -937,6 +937,7 @@ function ShopNavigator:getCurrentTitleEntry()
     if not menu then return nil end
 
     local text = menu.Title or root.Title
+    local dynamic = type(text) == "function" or menu.TitleDynamic or root.TitleDynamic
     local baseId = menu.Id
     local entryType = "MENU_TITLE"
 
@@ -958,13 +959,16 @@ function ShopNavigator:getCurrentTitleEntry()
             self.onError("Title function failed: " .. tostring(result))
             text = nil
         end
+    elseif type(text) ~= "string" then
+        self.onError("Title is not a string: " .. tostring(text))
+        text = nil
     end
 
     return {
         Id = self:_getUniqueId(baseId),
         Text = text,
         Type = entryType,
-        Dynamic = type(text) == "function"
+        Dynamic = dynamic
     }
 end
 
@@ -979,6 +983,7 @@ function ShopNavigator:getCurrentSubtitleEntry()
 
     -- Priority: Tab Subtitle -> Tab Label -> Menu Subtitle -> Menu Label -> Root Subtitle -> Root Label
     local text = menu.Subtitle or menu.Label or root.Subtitle or root.Label
+    local dynamic = type(text) == "function" or menu.SubtitleDynamic or root.SubtitleDynamic
     local baseId = menu.Id
     local entryType = "MENU_SUBTITLE"
 
@@ -1000,12 +1005,15 @@ function ShopNavigator:getCurrentSubtitleEntry()
             self.onError("Subtitle function failed: " .. tostring(result))
             text = nil
         end
+    elseif type(text) ~= "string" then
+        self.onError("Subtitle is not a string: " .. tostring(text))
+        text = nil
     end
 
     return {
         Id = self:_getUniqueId(baseId),
         Text = text,
         Type = entryType,
-        Dynamic = type(text) == "function"
+        Dynamic = dynamic
     }
 end

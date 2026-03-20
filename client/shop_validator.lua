@@ -4,7 +4,9 @@ local SCHEMAS <const> = {
     Menu = {
         Id = { type = { "string", "number" }, optional = true },
         Title = { type = { "string", "function" }, optional = true },
+        TitleDynamic = { type = "boolean", optional = true },
         Subtitle = { type = { "string", "function" }, optional = true },
+        SubtitleDynamic = { type = "boolean", optional = true },
         Scene = { type = "string", optional = true },
         Validate = { type = "boolean", optional = true },
         AllowWalking = { type = "boolean", optional = true },
