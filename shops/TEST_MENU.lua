@@ -80,7 +80,7 @@ Citizen.CreateThread(function()
             -- Create prompt
             if prompt == 0 then
                 prompt = UiPromptRegisterBegin()
-                UiPromptSetControlAction(prompt, GetHashKey("INPUT_PHOTO_MODE"))
+                UiPromptSetControlAction(prompt, `INPUT_PHOTO_MODE`)
                 UiPromptSetText(prompt, VarString(10, "LITERAL_STRING", "Test Menu"))
                 UiPromptSetHoldMode(prompt, 250)
                 UiPromptSetAttribute(prompt, 2, true)
