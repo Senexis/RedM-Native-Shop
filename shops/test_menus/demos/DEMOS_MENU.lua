@@ -36,9 +36,9 @@ local data = {
 
                 PostFeedTicker(string.format("Cooling down action for %d seconds", actionCooldownSeconds))
 
-                Citizen.CreateThread(function()
+                CreateThread(function()
                     while actionCooldownSeconds > 0 do
-                        Citizen.Wait(1000)
+                        Wait(1000)
 
                         actionCooldownSeconds = actionCooldownSeconds - 1
 

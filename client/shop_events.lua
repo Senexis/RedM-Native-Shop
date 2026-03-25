@@ -55,19 +55,19 @@ end
 
 function ShopEvents.GetUiEventType(id)
     local types = {
-        [joaat("NEW_PAGE")]                     = "NEW_PAGE",
-        [joaat("ITEM_FOCUSED")]                 = "ITEM_FOCUSED",
-        [joaat("ITEM_HOLD_ACTION_CANCELLED")]   = "ITEM_HOLD_ACTION_CANCELLED",
-        [joaat("FEED_MESSAGE_INTERACTED")]      = "FEED_MESSAGE_INTERACTED",
-        [joaat("ITEM_SELECTED")]                = "ITEM_SELECTED",
-        [joaat("DATA_ADJUSTABLE_CHANGED")]      = "DATA_ADJUSTABLE_CHANGED",
-        [joaat("TAB_PAGE_DECREMENT")]           = "TAB_PAGE_DECREMENT",
-        [joaat("ITEM_UNFOCUSED")]               = "ITEM_UNFOCUSED",
-        [joaat("PAGED_COLLECTION_INITIALIZED")] = "PAGED_COLLECTION_INITIALIZED",
-        [joaat("PAGED_COLLECTION_RESET")]       = "PAGED_COLLECTION_RESET",
-        [joaat("PAGED_COLLECTION_REQUEST")]     = "PAGED_COLLECTION_REQUEST",
-        [joaat("TAB_PAGE_INCREMENT")]           = "TAB_PAGE_INCREMENT",
-        [joaat("NEW_ACTIVITY")]                 = "NEW_ACTIVITY",
+        [`NEW_PAGE`]                     = "NEW_PAGE",
+        [`ITEM_FOCUSED`]                 = "ITEM_FOCUSED",
+        [`ITEM_HOLD_ACTION_CANCELLED`]   = "ITEM_HOLD_ACTION_CANCELLED",
+        [`FEED_MESSAGE_INTERACTED`]      = "FEED_MESSAGE_INTERACTED",
+        [`ITEM_SELECTED`]                = "ITEM_SELECTED",
+        [`DATA_ADJUSTABLE_CHANGED`]      = "DATA_ADJUSTABLE_CHANGED",
+        [`TAB_PAGE_DECREMENT`]           = "TAB_PAGE_DECREMENT",
+        [`ITEM_UNFOCUSED`]               = "ITEM_UNFOCUSED",
+        [`PAGED_COLLECTION_INITIALIZED`] = "PAGED_COLLECTION_INITIALIZED",
+        [`PAGED_COLLECTION_RESET`]       = "PAGED_COLLECTION_RESET",
+        [`PAGED_COLLECTION_REQUEST`]     = "PAGED_COLLECTION_REQUEST",
+        [`TAB_PAGE_INCREMENT`]           = "TAB_PAGE_INCREMENT",
+        [`NEW_ACTIVITY`]                 = "NEW_ACTIVITY",
     }
 
     return types[id]
@@ -75,22 +75,22 @@ end
 
 function ShopEvents.GetHashParameterType(id)
     local types = {
-        [joaat("GENERIC_SHOP_UI_BYPASS")]            = "GENERIC_SHOP_UI_BYPASS",
-        [joaat("GENERIC_SHOP_UI_ENTRY")]             = "GENERIC_SHOP_UI_ENTRY",
-        [joaat("GENERIC_SHOP_UI_EXIT")]              = "GENERIC_SHOP_UI_EXIT",
-        [joaat("GENERIC_SHOP_UI_HAIR_STEPPER")]      = "GENERIC_SHOP_UI_HAIR_STEPPER",
-        [joaat("GENERIC_SHOP_UI_NEXT_PAGE")]         = "GENERIC_SHOP_UI_NEXT_PAGE",
-        [joaat("GENERIC_SHOP_UI_NEXT_SCENE")]        = "GENERIC_SHOP_UI_NEXT_SCENE",
-        [joaat("GENERIC_SHOP_UI_PALETTE_FOCUS")]     = "GENERIC_SHOP_UI_PALETTE_FOCUS",
-        [joaat("GENERIC_SHOP_UI_PALETTE_FOCUSLESS")] = "GENERIC_SHOP_UI_PALETTE_FOCUSLESS",
-        [joaat("GENERIC_SHOP_UI_PREV_SCENE")]        = "GENERIC_SHOP_UI_PREV_SCENE",
-        [joaat("GENERIC_SHOP_UI_SECONDARY_SELECT")]  = "GENERIC_SHOP_UI_SECONDARY_SELECT",
-        [joaat("GENERIC_SHOP_UI_SELECT")]            = "GENERIC_SHOP_UI_SELECT",
-        [joaat("GENERIC_SHOP_UI_SELECT_INFO")]       = "GENERIC_SHOP_UI_SELECT_INFO",
-        [joaat("GENERIC_SHOP_UI_SELECT_MODIFY")]     = "GENERIC_SHOP_UI_SELECT_MODIFY",
-        [joaat("GENERIC_SHOP_UI_SELECT_OPTION")]     = "GENERIC_SHOP_UI_SELECT_OPTION",
-        [joaat("GENERIC_SHOP_UI_SELECT_TOGGLE")]     = "GENERIC_SHOP_UI_SELECT_TOGGLE",
-        [joaat("GENERIC_SHOP_UI_STEPPER")]           = "GENERIC_SHOP_UI_STEPPER",
+        [`GENERIC_SHOP_UI_BYPASS`]            = "GENERIC_SHOP_UI_BYPASS",
+        [`GENERIC_SHOP_UI_ENTRY`]             = "GENERIC_SHOP_UI_ENTRY",
+        [`GENERIC_SHOP_UI_EXIT`]              = "GENERIC_SHOP_UI_EXIT",
+        [`GENERIC_SHOP_UI_HAIR_STEPPER`]      = "GENERIC_SHOP_UI_HAIR_STEPPER",
+        [`GENERIC_SHOP_UI_NEXT_PAGE`]         = "GENERIC_SHOP_UI_NEXT_PAGE",
+        [`GENERIC_SHOP_UI_NEXT_SCENE`]        = "GENERIC_SHOP_UI_NEXT_SCENE",
+        [`GENERIC_SHOP_UI_PALETTE_FOCUS`]     = "GENERIC_SHOP_UI_PALETTE_FOCUS",
+        [`GENERIC_SHOP_UI_PALETTE_FOCUSLESS`] = "GENERIC_SHOP_UI_PALETTE_FOCUSLESS",
+        [`GENERIC_SHOP_UI_PREV_SCENE`]        = "GENERIC_SHOP_UI_PREV_SCENE",
+        [`GENERIC_SHOP_UI_SECONDARY_SELECT`]  = "GENERIC_SHOP_UI_SECONDARY_SELECT",
+        [`GENERIC_SHOP_UI_SELECT`]            = "GENERIC_SHOP_UI_SELECT",
+        [`GENERIC_SHOP_UI_SELECT_INFO`]       = "GENERIC_SHOP_UI_SELECT_INFO",
+        [`GENERIC_SHOP_UI_SELECT_MODIFY`]     = "GENERIC_SHOP_UI_SELECT_MODIFY",
+        [`GENERIC_SHOP_UI_SELECT_OPTION`]     = "GENERIC_SHOP_UI_SELECT_OPTION",
+        [`GENERIC_SHOP_UI_SELECT_TOGGLE`]     = "GENERIC_SHOP_UI_SELECT_TOGGLE",
+        [`GENERIC_SHOP_UI_STEPPER`]           = "GENERIC_SHOP_UI_STEPPER",
     }
 
     return types[id]
@@ -190,10 +190,10 @@ function ShopEvents.GetSelectedTargetMenu()
     return DatabindingReadDataIntFromParent(ShopEvents.state.selectedDatastore, "MenuIndex")
 end
 
-Citizen.CreateThread(function()
+CreateThread(function()
     while true do
         if IsUiappRunning("shop_menu") ~= 1 then
-            Citizen.Wait(25)
+            Wait(25)
             goto continue
         end
 
@@ -328,7 +328,7 @@ Citizen.CreateThread(function()
             EventsUiPopMessage(`generic_shop_ui_events`)
         end
 
-        Citizen.Wait(0)
+        Wait(0)
         ::continue::
     end
 end)

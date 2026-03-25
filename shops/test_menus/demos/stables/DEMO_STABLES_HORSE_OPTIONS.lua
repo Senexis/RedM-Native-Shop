@@ -4,12 +4,12 @@ local function getHorseName(title, description, default, maxLength)
     DisplayOnscreenKeyboard(4, title, description, default, "", "", "", maxLength)
 
     while UpdateOnscreenKeyboard() ~= 1 and UpdateOnscreenKeyboard() ~= 2 do
-        Citizen.Wait(0)
+        Wait(0)
     end
 
     if UpdateOnscreenKeyboard() ~= 2 then
         local result = GetOnscreenKeyboardResult()
-        Citizen.Wait(500)
+        Wait(500)
         return result
     end
 

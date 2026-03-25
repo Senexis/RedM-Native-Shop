@@ -400,7 +400,7 @@ function ShopUI.OnOpen()
     local swatchLoaded = false
     while swatchLoaded ~= 1 do
         swatchLoaded = CreateSwatchTextureDict(40)
-        Citizen.Wait(0)
+        Wait(0)
     end
 
     local TEXT_BLOCKS <const> = {
@@ -412,7 +412,7 @@ function ShopUI.OnOpen()
     for _, block in pairs(TEXT_BLOCKS) do
         TextBlockRequest(block)
         while TextBlockIsLoaded(block) ~= 1 do
-            Citizen.Wait(0)
+            Wait(0)
         end
     end
 
@@ -424,16 +424,16 @@ function ShopUI.OnOpen()
     for _, dict in pairs(TEXTURE_DICTS) do
         RequestStreamedTxd(dict, false)
         while HasStreamedTxdLoaded(dict) ~= 1 do
-            Citizen.Wait(0)
+            Wait(0)
         end
     end
 
     LaunchUiappWithEntry("shop_menu", "generic_shop")
 
-    Citizen.CreateThread(function()
+    CreateThread(function()
         -- Only hook into the always-running event handler while the UI is open
         while IsUiappRunning("shop_menu") == 1 do
-            Citizen.Wait(0)
+            Wait(0)
 
             local success, error = pcall(ShopData.MaintainEvents)
 
