@@ -223,7 +223,12 @@ function ShopData.MaintainEvents()
 
     -- Happens when the stepper value for an item has changed
     if ShopData.GetEventFlag(ShopEvents.FLAG_STEPPER_DELTA_CHANGE) then
-        ShopUI.Events.HandleStepperChange()
+        ShopUI.Events.HandleStepperDeltaChange()
+    end
+
+    -- Happens when the user clicks on a specific palette item
+    if ShopData.GetEventFlag(ShopEvents.FLAG_STEPPER_ABSOLUTE_CHANGE) then
+        ShopUI.Events.HandleStepperAbsoluteChange()
     end
 
     -- Happens when a new collection has been set, usually when navigating to a new tab/page

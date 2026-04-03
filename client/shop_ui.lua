@@ -1297,7 +1297,76 @@ function ShopUI.Events.HandleItemUnfocus()
     return true
 end
 
-function ShopUI.Events.HandleStepperChange()
+function ShopUI.Events.HandleStepperDeltaChange()
+    local datastore = ShopEvents.state.focusedDatastore
+    if not datastore then return true end
+
+    local change = ShopEvents.state.adjustableIndex
+    if not change or change == 0 then return true end
+
+    local index, max = nil, nil
+    local main = ShopUI.bindings.dscMain
+    local scene = ShopUI.bindings.dscScene
+
+    if DatabindingReadDataBoolFromParent(scene, "SliderVisible") == 1 then
+        index = DatabindingReadDataIntFromParent(scene, "SliderCurrent")
+        max = DatabindingReadDataIntFromParent(scene, "SliderInputMax")
+
+        -- Calculate the new index
+        index = (index + change)
+
+        -- Clamp the index within bounds
+        if (index > max) then
+            index = max
+        elseif (index < 1) then
+            index = 1
+        end
+    elseif DatabindingReadDataBoolFromParent(main, "uiPaletteVisible") == 1 then
+        index = DatabindingReadDataIntFromParent(main, "currentPaletteIndex")
+        max = DatabindingReadDataIntFromParent(main, "paletteItemCount")
+
+        -- Calculate the new index
+        index = (index + change)
+
+        -- Wrap the index within bounds
+        if (index >= max) then
+            index = 0
+        elseif (index < 0) then
+            index = (max - 1)
+        end
+    elseif DatabindingReadDataBoolFromParent(datastore, "uiItemStepperVisible") == 1 then
+        index = DatabindingReadDataIntFromParent(datastore, "uiItemStepperValue")
+        max = DatabindingReadDataIntFromParent(datastore, "uiItemStepperMax")
+
+        -- Calculate the new index
+        index = (index + change)
+
+        -- Wrap the index within bounds
+        if (index >= max) then
+            index = 0
+        elseif (index < 0) then
+            index = (max - 1)
+        end
+    end
+
+    if not index or not max then
+        ShopUI.Events.HandleItemSelect("DATA_ADJUSTABLE_CHANGED", change)
+        return true
+    end
+
+    -- Update the UI with the new index and value
+    return ShopUI.Events.HandleStepperChange(index)
+end
+
+function ShopUI.Events.HandleStepperAbsoluteChange()
+    local index = ShopEvents.state.adjustableIndex
+    if not index then return true end
+
+    -- Update the UI with the new index and value
+    return ShopUI.Events.HandleStepperChange(index)
+end
+
+function ShopUI.Events.HandleStepperChange(value)
     local datastore = ShopEvents.state.focusedDatastore
     if not datastore then return true end
 
@@ -1311,33 +1380,21 @@ function ShopUI.Events.HandleStepperChange()
 
     local main = ShopUI.bindings.dscMain
     local scene = ShopUI.bindings.dscScene
-    local change = ShopEvents.state.adjustableIndex
 
     if DatabindingReadDataBoolFromParent(scene, "SliderVisible") == 1 then
-        local index = DatabindingReadDataIntFromParent(scene, "SliderCurrent")
         local max = DatabindingReadDataIntFromParent(scene, "SliderInputMax")
-
-        -- Calculate the new index
-        index = (index + change)
-
-        -- Clamp the index within bounds
-        if (index > max) then
-            index = max
-        elseif (index < 1) then
-            index = 1
-        end
 
         -- Update the item's value
         if type(data.SliderInfo) == "table" and type(data.SliderInfo.Value) == "number" then
-            data.SliderInfo.Value = index
+            data.SliderInfo.Value = value
         else
             print("[NativeShop] Warning: Could not update palette value for: " .. tostring(id))
         end
 
         -- Update the data value
-        DatabindingWriteDataIntFromParent(scene, "SliderCurrent", index)
-        DatabindingWriteDataBoolFromParent(scene, "SliderLeftArrowEnabled", index > 1)
-        DatabindingWriteDataBoolFromParent(scene, "SliderRightArrowEnabled", index < max)
+        DatabindingWriteDataIntFromParent(scene, "SliderCurrent", value)
+        DatabindingWriteDataBoolFromParent(scene, "SliderLeftArrowEnabled", value > 1)
+        DatabindingWriteDataBoolFromParent(scene, "SliderRightArrowEnabled", value < max)
 
         -- Refresh the item in case it depends on the value
         ShopUI.RefreshItem(id)
@@ -1347,35 +1404,24 @@ function ShopUI.Events.HandleStepperChange()
             ID = id,
             Index = focusIndex,
             Item = item,
-            Value = index,
+            Value = value,
             Type = "SLIDER",
         })
     elseif DatabindingReadDataBoolFromParent(main, "uiPaletteVisible") == 1 then
-        local index = DatabindingReadDataIntFromParent(main, "currentPaletteIndex")
         local max = DatabindingReadDataIntFromParent(main, "paletteItemCount")
-
-        -- Calculate the new index
-        index = (index + change)
-
-        -- Clamp the index within bounds
-        if (index >= max) then
-            index = 0
-        elseif (index < 0) then
-            index = (max - 1)
-        end
 
         -- Update the item's value
         if type(data.Palette) == "table" and type(data.Palette.Value) == "number" then
-            data.Palette.Value = index + 1
+            data.Palette.Value = value + 1
         else
             print("[NativeShop] Warning: Could not update palette value for: " .. tostring(id))
         end
 
         -- Update the data value
-        DatabindingWriteDataIntFromParent(main, "currentPaletteIndex", index)
-        DatabindingWriteDataBoolFromParent(scene, "SliderLeftArrowEnabled", index > 1)
-        DatabindingWriteDataBoolFromParent(scene, "SliderRightArrowEnabled", index < max)
-        DatabindingAddDataHash(main, "ItemPaletteItemName", string.format("NSUI_%s_%s", id, index + 1))
+        DatabindingWriteDataIntFromParent(main, "currentPaletteIndex", value)
+        DatabindingWriteDataBoolFromParent(scene, "SliderLeftArrowEnabled", value > 1)
+        DatabindingWriteDataBoolFromParent(scene, "SliderRightArrowEnabled", value < max)
+        DatabindingAddDataHash(main, "ItemPaletteItemName", string.format("NSUI_%s_%s", id, value + 1))
 
         -- Refresh the item in case it depends on the value
         ShopUI.RefreshItem(id)
@@ -1385,26 +1431,13 @@ function ShopUI.Events.HandleStepperChange()
             ID = id,
             Index = focusIndex,
             Item = item,
-            Value = index + 1,
+            Value = value + 1,
             Type = "PALETTE",
         })
     elseif DatabindingReadDataBoolFromParent(datastore, "uiItemStepperVisible") == 1 then
-        local index = DatabindingReadDataIntFromParent(datastore, "uiItemStepperValue")
-        local max = DatabindingReadDataIntFromParent(datastore, "uiItemStepperMax")
-
-        -- Calculate the new index
-        index = (index + change)
-
-        -- Wrap the index within bounds
-        if (index >= max) then
-            index = 0
-        elseif (index < 0) then
-            index = (max - 1)
-        end
-
         -- Update the item's value
         if type(data.StepperValue) == "number" then
-            data.StepperValue = index + 1
+            data.StepperValue = value + 1
         else
             print("[NativeShop] Warning: Could not update stepper value for: " .. tostring(id))
         end
@@ -1417,12 +1450,12 @@ function ShopUI.Events.HandleStepperChange()
             ID = id,
             Index = focusIndex,
             Item = item,
-            Value = index + 1,
+            Value = value + 1,
             Type = "STEPPER",
         })
     end
 
-    ShopUI.Events.HandleItemSelect("DATA_ADJUSTABLE_CHANGED", change)
+    ShopUI.Events.HandleItemSelect("DATA_ADJUSTABLE_CHANGED", value)
 
     return true
 end

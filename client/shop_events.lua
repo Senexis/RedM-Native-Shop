@@ -13,6 +13,7 @@ ShopEvents = {
     FLAG_COLLECTION_REQUEST = 1 << 13,
     FLAG_STEPPER_DELTA_CHANGE = 1 << 14,
     FLAG_UNFOCUSED = 1 << 15,
+    FLAG_STEPPER_ABSOLUTE_CHANGE = 1 << 16,
 }
 
 ShopEvents.state = {
@@ -55,19 +56,20 @@ end
 
 function ShopEvents.GetUiEventType(id)
     local types = {
-        [`NEW_PAGE`]                     = "NEW_PAGE",
-        [`ITEM_FOCUSED`]                 = "ITEM_FOCUSED",
-        [`ITEM_HOLD_ACTION_CANCELLED`]   = "ITEM_HOLD_ACTION_CANCELLED",
-        [`FEED_MESSAGE_INTERACTED`]      = "FEED_MESSAGE_INTERACTED",
-        [`ITEM_SELECTED`]                = "ITEM_SELECTED",
-        [`DATA_ADJUSTABLE_CHANGED`]      = "DATA_ADJUSTABLE_CHANGED",
-        [`TAB_PAGE_DECREMENT`]           = "TAB_PAGE_DECREMENT",
-        [`ITEM_UNFOCUSED`]               = "ITEM_UNFOCUSED",
-        [`PAGED_COLLECTION_INITIALIZED`] = "PAGED_COLLECTION_INITIALIZED",
-        [`PAGED_COLLECTION_RESET`]       = "PAGED_COLLECTION_RESET",
-        [`PAGED_COLLECTION_REQUEST`]     = "PAGED_COLLECTION_REQUEST",
-        [`TAB_PAGE_INCREMENT`]           = "TAB_PAGE_INCREMENT",
-        [`NEW_ACTIVITY`]                 = "NEW_ACTIVITY",
+        [`NEW_PAGE`]                         = "NEW_PAGE",
+        [`ITEM_FOCUSED`]                     = "ITEM_FOCUSED",
+        [`ITEM_HOLD_ACTION_CANCELLED`]       = "ITEM_HOLD_ACTION_CANCELLED",
+        [`FEED_MESSAGE_INTERACTED`]          = "FEED_MESSAGE_INTERACTED",
+        [`ITEM_SELECTED`]                    = "ITEM_SELECTED",
+        [`DATA_ADJUSTABLE_CHANGED`]          = "DATA_ADJUSTABLE_CHANGED",
+        [`DATA_ADJUSTABLE_CHANGED_ABSOLUTE`] = "DATA_ADJUSTABLE_CHANGED_ABSOLUTE",
+        [`TAB_PAGE_DECREMENT`]               = "TAB_PAGE_DECREMENT",
+        [`ITEM_UNFOCUSED`]                   = "ITEM_UNFOCUSED",
+        [`PAGED_COLLECTION_INITIALIZED`]     = "PAGED_COLLECTION_INITIALIZED",
+        [`PAGED_COLLECTION_RESET`]           = "PAGED_COLLECTION_RESET",
+        [`PAGED_COLLECTION_REQUEST`]         = "PAGED_COLLECTION_REQUEST",
+        [`TAB_PAGE_INCREMENT`]               = "TAB_PAGE_INCREMENT",
+        [`NEW_ACTIVITY`]                     = "NEW_ACTIVITY",
     }
 
     return types[id]
@@ -220,7 +222,7 @@ CreateThread(function()
                 if eventType == "TAB_PAGE_DECREMENT" or eventType == "TAB_PAGE_INCREMENT" then
                     ShopEvents.SetEventFlag(ShopEvents.FLAG_FILTER_CHANGED)
                     ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
-                elseif eventType == "DATA_ADJUSTABLE_CHANGED" then
+                elseif eventType == "DATA_ADJUSTABLE_CHANGED" or eventType == "DATA_ADJUSTABLE_CHANGED_ABSOLUTE" then
                     ShopEvents.state.adjustableIndex = intParameter
                     ShopEvents.state.adjustableParameter = hashParameter
 
@@ -228,7 +230,11 @@ CreateThread(function()
                         ShopEvents.state.focusedDatastore = datastoreId
                     end
 
-                    ShopEvents.SetEventFlag(ShopEvents.FLAG_STEPPER_DELTA_CHANGE)
+                    if eventType == "DATA_ADJUSTABLE_CHANGED" then
+                        ShopEvents.SetEventFlag(ShopEvents.FLAG_STEPPER_DELTA_CHANGE)
+                    else
+                        ShopEvents.SetEventFlag(ShopEvents.FLAG_STEPPER_ABSOLUTE_CHANGE)
+                    end
                     ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
                 elseif eventType == "ITEM_FOCUSED" then
                     ShopEvents.state.focusedDatastore = datastoreId
