@@ -9,10 +9,17 @@ version "1.0.0"
 repository "https://github.com/Senexis/RedM-Native-Shop"
 license "GNU GPL v3"
 
+file_set 'outfits' {
+    "data/outfits_male.json",
+    "data/outfits_female.json",
+}
+
 client_scripts {
     -- Load modules in dependency order
     "client/config.lua",
     "client/util_dataview.lua",
+    "client/util_outfits.lua",
+    "client/util_clothing.lua",
     "client/util_items.lua",
     "client/util_ticker.lua",
     "client/util_toasts.lua",

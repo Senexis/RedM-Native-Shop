@@ -380,9 +380,14 @@ function ItemDatabase:GetSwatchTexture(index)
     -- The item to use for swatch generation can be overriden in the case of outfits
     local item = self.hash
 
+    -- Get the swatch item from outfits
     if self:IsOutfit() then
-        -- Outfit items aren't supported yet
-        return nil, nil
+        local outfit = self:GetOutfit()
+        if outfit then item = outfit:getSwatchItem() end
+
+        if not item then
+            error("Failed to find swatch item for outfit with hash: " .. self.hash)
+        end
     end
 
     -- Generate the swatch texture, depending on if this item is makeup or not
@@ -521,26 +526,11 @@ function ItemDatabase:GetPedType()
 
     if group == `HORSE_EQUIPMENT` then
         return 3
-    elseif group == `CLOTHING` then
-        if self:HasTag(`CI_TAG_CLOTHING_ITEM_FEMALE`) then
-            return 1
-        else
-            return 0
-        end
+    elseif self:HasTag(`CI_TAG_CLOTHING_ITEM_FEMALE`) then
+        return 1
+    else
+        return 0
     end
-
-    -- Always assume the default ped type is male
-    return 0
-end
-
----Gets various info about horses
-function ItemDatabase:GetHorseInfo(model)
-    if not model and self:IsInGroup(`HORSE`) then model = self:GetModel() end
-    if not model then return nil end
-
-    local HORSE_DATA <const> = {
-
-    }
 end
 
 ---Checks if the item is a valid wardrobe outfit
@@ -558,85 +548,22 @@ function ItemDatabase:IsOutfit()
     return OUTFIT_CATEGORIES[category] == true
 end
 
----Gets the name for a single item within a category, if applicable (eg., "Hat" for the "Hats" category)
----@return number|nil The item name hash, or nil if not applicable
-function ItemDatabase:ClothingSingleItemName()
-    local category = self:GetCategory()
+function ItemDatabase:GetOutfit()
+    local pedType = self:GetPedType()
 
-    local SINGLE_ITEM_CATEGORIES <const> = {
-        [`CI_CATEGORY_WARDROBE_ACCESSORIES`] = 956753366,
-        [`CI_CATEGORY_WARDROBE_APRONS`] = 229848043,
-        [`CI_CATEGORY_WARDROBE_BADGE`] = 588559743,
-        [`CI_CATEGORY_WARDROBE_BAG`] = -1165477807,
-        [`CI_CATEGORY_WARDROBE_BAG_STRAP`] = 542482997,
-        [`CI_CATEGORY_WARDROBE_BANDANA`] = -1598999798,
-        [`CI_CATEGORY_WARDROBE_BELTS`] = -1964604515,
-        [`CI_CATEGORY_WARDROBE_WAIST_STRAP`] = -1964604515,
-        [`CI_CATEGORY_WARDROBE_BLOUSES`] = -950324859,
-        [`CI_CATEGORY_WARDROBE_BOOTS`] = -1768217088,
-        [`CI_CATEGORY_WARDROBE_BOOTS_ACCESSORIES`] = -647442474,
-        [`CI_CATEGORY_WARDROBE_BUCKLE`] = -1669395156,
-        [`CI_CATEGORY_WARDROBE_CHAPS`] = 2099263972,
-        [1545016984] = 2099263972,  -- Chaps
-        [`CI_CATEGORY_WARDROBE_COATS`] = 1177470655,
-        [-1080198344] = 1177470655, -- Coat
-        [`CI_CATEGORY_WARDROBE_PONCHO`] = -768798238,
-        [`CI_CATEGORY_WARDROBE_BODICE`] = -145955678,
-        [`CI_CATEGORY_WARDROBE_DRESSES`] = 1758406353,
-        [`CI_CATEGORY_WARDROBE_GLASSES`] = 332275111,
-        [`CI_CATEGORY_WARDROBE_GLOVES`] = 1533215112,
-        [`CI_CATEGORY_WARDROBE_GUNBELT`] = 1990307743,
-        [`CI_CATEGORY_WARDROBE_HAT`] = 1314684259,
-        [`CI_CATEGORY_WARDROBE_HAT_ACCESSORIES`] = -1942508740,
-        [-646147237] = 2145255488, -- Headwear
-        [`CI_CATEGORY_WARDROBE_LOADOUT`] = 1735590610,
-        [`CI_CATEGORY_WARDROBE_LOADOUT_3`] = -1804458598,
-        [`CI_CATEGORY_WARDROBE_LOADOUT_4`] = -1804458598,
-        [`CI_CATEGORY_WARDROBE_MASK`] = -2096103467,
-        [`CI_CATEGORY_WARDROBE_BIG_MASK`] = -2096103467,
-        [`CI_CATEGORY_WARDROBE_NECKWEAR`] = -572044425,
-        [`CI_CATEGORY_WARDROBE_NECKWEAR_1`] = -1893707445,
-        [`CI_CATEGORY_WARDROBE_NECKWEAR_2`] = -572044425,
-        [`CI_CATEGORY_WARDROBE_OUTFIT`] = 1704476318,
-        [`CI_CATEGORY_WARDROBE_OVERALLS`] = 1135086855,
-        [`CI_CATEGORY_WARDROBE_PANT`] = -1118685671,
-        [`CI_CATEGORY_WARDROBE_RINGS`] = 1373811563,
-        [`CI_CATEGORY_WARDROBE_SATCHEL`] = -551303313,
-        [`CI_CATEGORY_WARDROBE_SCARVES`] = -1962451182,
-        [`CI_CATEGORY_WARDROBE_SHIRT`] = -999848467,
-        [`CI_CATEGORY_WARDROBE_SKIRTS`] = 2123406071,
-        [`CI_CATEGORY_WARDROBE_SPATS`] = 106280714,
-        [`CI_CATEGORY_WARDROBE_STOCKINGS`] = 406014096,
-        [`CI_CATEGORY_WARDROBE_SUSPENDERS`] = -350927420,
-        [`CI_CATEGORY_WARDROBE_TIES`] = -494519208,
-        [`CI_CATEGORY_WARDROBE_UNDERGARMENT`] = 834235656,
-        [`CI_CATEGORY_WARDROBE_VEST`] = 1488981351,
-        [`CI_CATEGORY_WARDROBE_BRACELET`] = -1622329839,
-        [`CI_CATEGORY_WARDROBE_KNIFE_HOLSTER`] = 1995280482,
-        [`CI_CATEGORY_WARDROBE_TALISMAN_BELT`] = -1596855333,
-        [`CI_CATEGORY_WARDROBE_TALISMAN_BOOT`] = -1596855333,
-        [`CI_CATEGORY_WARDROBE_TALISMAN_HOLSTER`] = -1596855333,
-        [`CI_CATEGORY_WARDROBE_TALISMAN_NECK`] = -1596855333,
-        [`CI_CATEGORY_WARDROBE_TALISMAN_SATCHEL`] = -1596855333,
-        [`CI_CATEGORY_WARDROBE_VEST_ACCESSORY`] = -721165241,
-        [`CI_CATEGORY_WARDROBE_WRIST_ACCESSORY`] = -1134874053,
-        [`CI_CATEGORY_WARDROBE_UPPER_GARB`] = 1436397544,
-        [`CI_CATEGORY_WARDROBE_LOWER_GARB`] = 1737462569,
-        [`CI_CATEGORY_WARDROBE_GUNBELT_TRINKET`] = 614921588,
-        [`CI_CATEGORY_WARDROBE_LEFT_RINGS`] = -1811813854,
-        [`CI_CATEGORY_WARDROBE_RIGHT_RINGS`] = 1910916313,
-        [`CI_CATEGORY_WARDROBE_EYEWEAR`] = 1040778386,
-        [`CI_CATEGORY_WARDROBE_GAUNTLETS`] = -1084600277,
-        [`CI_CATEGORY_WARDROBE_HAIR_ACCESSORY`] = -557890885,
-        [`CI_CATEGORY_WARDROBE_HEADBAND`] = -1196444516,
-        [`CI_CATEGORY_WARDROBE_NIGHTGOWN`] = -1875263195,
-        [`CI_CATEGORY_WARDROBE_FULL_DRESS`] = -754876186,
-    }
+    if pedType == 0 then
+        return ItemData.OUTFITS_MALE[self.hash]
+    elseif pedType == 1 then
+        return ItemData.OUTFITS_FEMALE[self.hash]
+    end
 
-    local hash = SINGLE_ITEM_CATEGORIES[category]
-    if not hash then return nil end
+    return nil
+end
 
-    return GetStringFromHashKey(hash)
+---Gets the metaped tag(s) that should be removed when equippning a clothing none item
+---@return table|nil A table of tag ID hashes to remove, or nil if not applicable
+function ItemDatabase:ClothingNoneItemMapping()
+    return ItemData.NONE_ITEM_METAPED_TAGS[self.hash] or nil
 end
 
 ---Checks if the item is valid makeup or facial modification
@@ -657,13 +584,52 @@ function ItemDatabase:IsMakeup()
     return MAKEUP_CATEGORIES[category] == true
 end
 
+function ItemDatabase:IsItemFlagEnabled(flag)
+    local ITEM_FLAGS <const> = {
+        INTRINSIC_ITEM = 1 << 0,
+        PREVENT_REMOVAL = 1 << 1,
+        LEGENDARY = 1 << 2,
+        CAN_BE_EQUIPPED = 1 << 3,
+        CAN_BE_INSPECTED = 1 << 4,
+        NON_INVENTORY_CARRIABLE = 1 << 5,
+        USE_ITEM_MODEL = 1 << 6,
+        INSPECT_ONLY = 1 << 7,
+        INSPECT_ALWAYS = 1 << 8,
+        UNK_0x3EF935A9 = 1 << 9,
+        UNK_0x2D2516CE = 1 << 10,
+        UNK_0x8017BCB2 = 1 << 11,
+        UNK_0x5156DF31 = 1 << 12,
+        UNK_0x91C6600F = 1 << 13,
+        UNK_0x641A84B8 = 1 << 14,
+        UNK_0xB6512924 = 1 << 15,
+        UNK_0x88464D0F = 1 << 16,
+        UNK_0x407ABD69 = 1 << 17,
+        UNK_0x9E3E0F9E = 1 << 18,
+        UNK_0xBE8E503E = 1 << 19,
+        HAS_PURCHASE_LIMIT = 1 << 20, -- Unconfirmed (0xD5BDA008)
+        HAS_BEEN_READ = 1 << 21,      -- Unconfirmed (0x7C25C5D5)
+        SPEC_AMMO = 1 << 22,
+        CAN_BE_MAILED = 1 << 23,
+        IS_MEAT = 1 << 24,
+        UNK_0xB9590A10 = 1 << 25,
+        CANNOT_BE_MOVED = 1 << 26,
+        QUALITY_RUINED = 1 << 27,
+        QUALITY_POOR = 1 << 28,
+        QUALITY_NORMAL = 1 << 29,
+        QUALITY_PRISTINE = 1 << 30,
+    }
+
+    local flagBit = ITEM_FLAGS[flag] or 0
+    return InventoryIsInventoryItemFlagEnabled(self.hash, flagBit) == 1
+end
+
 ---Gets the "stars" (Quality) of the item (0-3)
 ---@return number
 function ItemDatabase:GetQualityStars()
-    if InventoryIsInventoryItemFlagEnabled(self.hash, 1 << 2) == 1 then return 3 end  -- Legendary
-    if InventoryIsInventoryItemFlagEnabled(self.hash, 1 << 30) == 1 then return 3 end -- Perfect
-    if InventoryIsInventoryItemFlagEnabled(self.hash, 1 << 29) == 1 then return 2 end -- High
-    if InventoryIsInventoryItemFlagEnabled(self.hash, 1 << 28) == 1 then return 1 end -- Poor
+    if self:IsItemFlagEnabled("LEGENDARY") then return 3 end
+    if self:IsItemFlagEnabled("QUALITY_PRISTINE") then return 3 end
+    if self:IsItemFlagEnabled("QUALITY_NORMAL") then return 2 end
+    if self:IsItemFlagEnabled("QUALITY_POOR") then return 1 end
     return 0
 end
 
@@ -674,7 +640,7 @@ function ItemDatabase:IsSpecial()
         return true
     end
 
-    return InventoryIsInventoryItemFlagEnabled(self.hash, 1 << 2) == 1
+    return self:IsItemFlagEnabled("LEGENDARY")
 end
 
 ---Gets the warmth rating of a clothing item

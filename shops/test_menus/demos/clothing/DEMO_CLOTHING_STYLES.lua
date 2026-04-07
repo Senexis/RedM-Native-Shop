@@ -26,6 +26,7 @@ local function getClothingStylesMenu(data)
                         Select = "Equip"
                     },
                     Action = function(selected)
+                        ApplyClothing(selected.Id)
                         PostFeedTicker(string.format("Selected %s", selected.Id))
                     end
                 })
