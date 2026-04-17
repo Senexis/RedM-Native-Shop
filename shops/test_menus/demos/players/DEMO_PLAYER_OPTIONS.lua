@@ -32,4 +32,4 @@ local function getPlayerOptionsMenu(player)
     }
 end
 
-ShopNavigator:registerDynamic("DEMO_PLAYER_OPTIONS", getPlayerOptionsMenu)
+ShopApi.RegisterDynamic("DEMO_PLAYER_OPTIONS", getPlayerOptionsMenu)

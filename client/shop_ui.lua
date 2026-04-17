@@ -546,6 +546,10 @@ function ShopUI.RefreshMenu(id)
     -- Rebuilds all menu entries that currently are added to the menu
     ShopUI.RefreshAllItems()
 
+    -- Update the title and subheader in case they were changed
+    ShopUI.UpdateTitle()
+    ShopUI.UpdateSubheader()
+
     -- Refocuses the current item to update the scene UI
     ShopUI.state.suppressUnfocusEvent = true
     ShopEvents.SetEventFlag(ShopEvents.FLAG_UNFOCUSED)
@@ -703,7 +707,7 @@ function ShopUI.GetItemValue(item)
     return nil
 end
 
-function ShopUI.Events.HandleItemSelect(event, eventParameter)
+function ShopUI.Events.HandleItemSelect(index, event, eventParameter)
     local EVENT_MAP <const> = {
         GENERIC_SHOP_UI_SELECT           = { key = "select", prompt = "Select" },
         GENERIC_SHOP_UI_SECONDARY_SELECT = { key = "select", prompt = "Select" },
@@ -718,8 +722,8 @@ function ShopUI.Events.HandleItemSelect(event, eventParameter)
     local config = EVENT_MAP[event]
     if not config then return end
 
-    local index = ShopEvents.state.selectedIndex + 1
-    local item = ShopNavigator:getItemByIndex(index)
+    local itemIndex = index + 1
+    local item = ShopNavigator:getItemByIndex(itemIndex)
     if not item then return end
 
     local itemType = ShopEvents.GetSelectedItemType()
@@ -729,18 +733,27 @@ function ShopUI.Events.HandleItemSelect(event, eventParameter)
 
     if actionKey == "select" and isSubMenuNav then
         TriggerEvent("native_shop:menu_selected", {
-            ID = item.Id, Type = itemType, Index = index, Item = item
+            MenuId = item.MenuId,
+            ID = item.Id,
+            Type = itemType,
+            Index = itemIndex,
+            Item = item
         })
     elseif actionKey == "select" then
         TriggerEvent("native_shop:item_selected", {
-            ID = item.Id, Type = itemType, Index = index, Item = item
+            MenuId = item.MenuId,
+            ID = item.Id,
+            Type = itemType,
+            Index = itemIndex,
+            Item = item
         })
     end
 
     TriggerEvent("native_shop:item_action", {
+        MenuId = item.MenuId,
         ID = item.Id,
         Type = itemType,
-        Index = index,
+        Index = itemIndex,
         Item = item,
         Action = actionKey,
         ActionParameter = eventParameter,
@@ -785,14 +798,10 @@ function ShopUI.Events.HandleItemSelect(event, eventParameter)
         actionResult = ShopNavigator:navigateBack() or 1
     elseif action == "ROOT" then
         actionResult = ShopNavigator:navigateRoot() or 1
-    elseif type(action) == "function" then
+    elseif type(action) == "string" then
         local value = ShopUI.GetItemValue(item) or eventParameter
-        local ok, result = pcall(action, item, value, actionKey)
-        if not ok then
-            print(string.format("[NativeShop] Error executing action for item %s: %s", tostring(item.Id), tostring(result)))
-            return
-        end
-        actionResult = result
+        local resourceName = ShopNavigator:getCurrentResourceName()
+        actionResult = ShopData.SafeInvoke(resourceName, action, item, value, actionKey)
     else
         print("[NativeShop] Item '" .. tostring(item.Id) .. "' has an invalid Action type.")
         return
@@ -817,6 +826,7 @@ function ShopUI.Events.HandleItemFocus()
 
     if not ShopUI.state.suppressFocusEvent then
         TriggerEvent("native_shop:item_focused", {
+            MenuId = item.MenuId,
             ID = item.Id,
             Type = type,
             Index = index,
@@ -1285,6 +1295,7 @@ function ShopUI.Events.HandleItemUnfocus()
 
     if not ShopUI.state.suppressUnfocusEvent then
         TriggerEvent("native_shop:item_unfocused", {
+            MenuId = item.MenuId,
             ID = item.Id,
             Type = type,
             Index = index,
@@ -1350,7 +1361,8 @@ function ShopUI.Events.HandleStepperDeltaChange()
     end
 
     if not index or not max then
-        ShopUI.Events.HandleItemSelect("DATA_ADJUSTABLE_CHANGED", change)
+        local focusedIndex = ShopEvents.state.focusedIndex
+        ShopUI.Events.HandleItemSelect(focusedIndex, "DATA_ADJUSTABLE_CHANGED", change)
         return true
     end
 
@@ -1401,6 +1413,7 @@ function ShopUI.Events.HandleStepperChange(value)
 
         -- Notify listeners about the change
         TriggerEvent("native_shop:adjustable_changed", {
+            MenuId = item.MenuId,
             ID = id,
             Index = focusIndex,
             Item = item,
@@ -1428,6 +1441,7 @@ function ShopUI.Events.HandleStepperChange(value)
 
         -- Notify listeners about the change
         TriggerEvent("native_shop:adjustable_changed", {
+            MenuId = item.MenuId,
             ID = id,
             Index = focusIndex,
             Item = item,
@@ -1447,6 +1461,7 @@ function ShopUI.Events.HandleStepperChange(value)
 
         -- Notify listeners about the change
         TriggerEvent("native_shop:adjustable_changed", {
+            MenuId = item.MenuId,
             ID = id,
             Index = focusIndex,
             Item = item,
@@ -1455,7 +1470,7 @@ function ShopUI.Events.HandleStepperChange(value)
         })
     end
 
-    ShopUI.Events.HandleItemSelect("DATA_ADJUSTABLE_CHANGED", value)
+    ShopUI.Events.HandleItemSelect(focusIndex, "DATA_ADJUSTABLE_CHANGED", value)
 
     return true
 end
@@ -2141,12 +2156,12 @@ function ShopUI.Prompts.UpdatePromptsFromItem(item)
     local hasAdjustAction = type(adjustData) == "table" and adjustData.Action or false
     local hasModifyAction = type(modifyData) == "table" and modifyData.Action or false
 
-    local isSelectVisible = hasSelectAction or type(selectData) == "string" or type(selectData.Label) == "string" or selectData.Visible == true
-    local isOptionVisible = hasOptionAction or type(optionData) == "string" or type(optionData.Label) == "string" or optionData.Visible == true
-    local isToggleVisible = hasToggleAction or type(toggleData) == "string" or type(toggleData.Label) == "string" or toggleData.Visible == true
-    local isInfoVisible = hasInfoAction or type(infoData) == "string" or type(infoData.Label) == "string" or infoData.Visible == true
-    local isAdjustVisible = hasAdjustAction or type(adjustData) == "string" or type(adjustData.Label) == "string" or adjustData.Visible == true
-    local isModifyVisible = hasModifyAction or type(modifyData) == "string" or type(modifyData.Label) == "string" or modifyData.Visible == true
+    local isSelectVisible = selectData.Visible ~= false and (hasSelectAction or type(selectData) == "string" or type(selectData.Label) == "string" or selectData.Visible == true)
+    local isOptionVisible = optionData.Visible ~= false and (hasOptionAction or type(optionData) == "string" or type(optionData.Label) == "string" or optionData.Visible == true)
+    local isToggleVisible = toggleData.Visible ~= false and (hasToggleAction or type(toggleData) == "string" or type(toggleData.Label) == "string" or toggleData.Visible == true)
+    local isInfoVisible = infoData.Visible ~= false and (hasInfoAction or type(infoData) == "string" or type(infoData.Label) == "string" or infoData.Visible == true)
+    local isAdjustVisible = adjustData.Visible ~= false and (hasAdjustAction or type(adjustData) == "string" or type(adjustData.Label) == "string" or adjustData.Visible == true)
+    local isModifyVisible = modifyData.Visible ~= false and (hasModifyAction or type(modifyData) == "string" or type(modifyData.Label) == "string" or modifyData.Visible == true)
 
     -- Enter | A
     -- Select is always visible for submenu/context items

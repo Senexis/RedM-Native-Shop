@@ -31,6 +31,9 @@ client_scripts {
     "client/res_events.lua",
     "client/res_exports.lua",
 
+    -- External API, this is what you import
+    "client/api.lua",
+
     -- Optional demonstration menus
     "shops/**/*.lua"
 }

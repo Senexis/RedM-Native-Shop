@@ -22,4 +22,4 @@ local data = {
     ItemSource = "LongMenuItems",
 }
 
-ShopNavigator:register(data, { LongMenuItems = getLongMenu })
+ShopApi.Register(data, { LongMenuItems = getLongMenu })

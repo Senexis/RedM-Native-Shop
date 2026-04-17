@@ -61,4 +61,4 @@ local function getClothingStylesMenu(data)
     }
 end
 
-ShopNavigator:registerDynamic("DEMO_CLOTHING_STYLES", getClothingStylesMenu)
+ShopApi.RegisterDynamic("DEMO_CLOTHING_STYLES", getClothingStylesMenu)

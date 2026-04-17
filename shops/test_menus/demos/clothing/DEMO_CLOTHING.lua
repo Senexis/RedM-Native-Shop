@@ -144,4 +144,4 @@ for index, value in ipairs(armorFemale) do
     safeAddTextEntry(value, label)
 end
 
-ShopNavigator:registerDynamic("DEMO_CLOTHING", getClothingMenu)
+ShopApi.RegisterDynamic("DEMO_CLOTHING", getClothingMenu)

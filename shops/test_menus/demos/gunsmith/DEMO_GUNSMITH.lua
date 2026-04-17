@@ -68,4 +68,4 @@ local function getWeaponItems(filter)
     return items
 end
 
-ShopNavigator:register(data, { WeaponItems = getWeaponItems })
+ShopApi.Register(data, { WeaponItems = getWeaponItems })

@@ -66,14 +66,15 @@ end
 local function getStablesMenu(data)
     local horse = nil
 
-    if type(data) == "table" then
-        horse = data
-    else
-        for _, item in ipairs(INVENTORY_DEMO) do
-            if item.Active then
-                horse = item
-                break
-            end
+    for _, item in ipairs(INVENTORY_DEMO) do
+        if data == "ACTIVE_HORSE" and item.Active then
+            horse = item
+            break
+        end
+
+        if data == item.Id then
+            horse = item
+            break
         end
     end
 
@@ -90,7 +91,7 @@ local function getStablesMenu(data)
 
     return {
         Title = "STABLES",
-        Subtitle = function ()
+        Subtitle = function()
             return string.format("Manage %s", nickname)
         end,
         AllowWalking = true,
@@ -211,4 +212,4 @@ local function getStablesMenu(data)
     }
 end
 
-ShopNavigator:registerDynamic(MENU_ID, getStablesMenu)
+ShopApi.RegisterDynamic(MENU_ID, getStablesMenu)

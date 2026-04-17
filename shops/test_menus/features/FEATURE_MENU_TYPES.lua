@@ -791,4 +791,4 @@ local data = {
     Items = getTestMenusMenus()
 }
 
-ShopNavigator:register(data)
+ShopApi.Register(data)

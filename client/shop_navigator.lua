@@ -25,6 +25,7 @@ ShopNavigator.allData = {}
 ShopNavigator.generators = {}
 ShopNavigator.generatorData = {}
 ShopNavigator.dataSources = {}
+ShopNavigator.resourceNames = {}
 ShopNavigator.menuMap = {}
 ShopNavigator.parentMap = {}
 ShopNavigator.itemOverrides = {}
@@ -219,13 +220,14 @@ function ShopNavigator:_rebuildCurrentItems()
             -- Pass Tab ID as filter if not "All"
             local filterArg = (activeTab and not activeTab.All) and activeTab.Id or nil
 
-            local generationOk, generatedItems = pcall(getter, filterArg)
-            if not generationOk or not generatedItems then
-                self.onError("ItemSource '" .. menu.ItemSource .. "' failed: " .. tostring(generatedItems))
+            local resourceName = self.resourceNames[rootId]
+            local result = ShopData.SafeInvoke(resourceName, getter, filterArg)
+            if not result then
+                self.onError("ItemSource '" .. menu.ItemSource .. "' failed")
                 return
             end
 
-            for i, rawItem in ipairs(generatedItems) do
+            for i, rawItem in ipairs(result) do
                 local validationOk, validatedItem = pcall(ShopValidator.Item, rawItem)
                 if not validationOk or not validatedItem then
                     self.onError("Item at index " .. i .. " from source '" .. menu.ItemSource .. "' failed validation: " .. tostring(validatedItem))
@@ -302,20 +304,17 @@ function ShopNavigator:_setMenuState(menuId, rootId, data)
         -- 1. Check if the context has changed
         -- If linkData is provided, compare it against the cached context.
         if linkData ~= nil then
-            if type(linkData) == "function" then
+            if type(linkData) == "string" and string.sub(linkData, 1, 3) == "cb_" then
                 local value = ShopUI.GetItemValue(data)
-                local ok, result = pcall(linkData, data, value)
-                if ok then
-                    linkData = result
-                else
-                    self.onError("Link data function failed: " .. tostring(result))
-                    linkData = nil
-                end
+                local resourceName = self.resourceNames[rootId]
+                local result = ShopData.SafeInvoke(resourceName, linkData, data, value)
+                linkData = result or nil
             end
 
             local lastData = self.generatorData[rootId]
 
-            if not self:_isSameContext(linkData, lastData) then
+            -- Check linkData again in case the generator resulted in nil
+            if linkData and not self:_isSameContext(linkData, lastData) then
                 self.focusMemory[rootId] = nil        -- Context switched: Reset focus
                 self.generatorData[rootId] = linkData -- Update context
             end
@@ -324,13 +323,14 @@ function ShopNavigator:_setMenuState(menuId, rootId, data)
         -- 2. Execute Generator
         local contextToUse = linkData or self.generatorData[rootId]
 
-        local generationOk, generatedMenu = pcall(self.generators[rootId], contextToUse)
-        if not generationOk or not generatedMenu then
-            self.onError("Generator for root '" .. rootId .. "' failed or returned nil: " .. tostring(generatedMenu))
+        local resourceName = self.resourceNames[rootId]
+        local result = ShopData.SafeInvoke(resourceName, self.generators[rootId], contextToUse)
+        if not result then
+            self.onError("Generator for root '" .. rootId .. "' returned nil: " .. tostring(result))
             return 1
         end
 
-        local validateOk, validatedMenu = pcall(ShopValidator.Menu, generatedMenu)
+        local validateOk, validatedMenu = pcall(ShopValidator.Menu, result)
         if not validateOk then
             self.onError("Generated menu for root '" .. rootId .. "' failed validation: " .. tostring(validatedMenu))
             return 1
@@ -407,7 +407,12 @@ end
 --- Registers a static shop table.
 ---@param menuData table The root menu configuration object. Must have an Id.
 ---@param dataSources table|nil A map of { [sourceName] = getterFunction }.
-function ShopNavigator:register(menuData, dataSources)
+---@param resourceName string The name of the registering resource.
+function ShopNavigator:register(menuData, dataSources, resourceName)
+    if not resourceName then
+        print("[NativeShop] Registration failed for menu '" .. tostring(menuData.Id) .. "': Resource name is required.")
+        return
+    end
     local ok, result = pcall(ShopValidator.Menu, menuData)
     if not ok then
         self.onError("Menu validation failed: " .. tostring(result))
@@ -415,11 +420,13 @@ function ShopNavigator:register(menuData, dataSources)
     end
     local rootId = result.Id
     if self.allData[rootId] or self.generators[rootId] then
-        print("[NativeShop] A menu with root ID '" .. rootId .. "' has already been registered. Skipping.")
+        local existingResource = self.resourceNames[rootId]
+        print(string.format("[NativeShop] A menu with root ID '%s' has already been registered by resource '%s'. Skipping registration from resource '%s'.", rootId, existingResource, resourceName))
         return
     end
     self.allData[rootId] = result
     self.dataSources[rootId] = dataSources or {}
+    self.resourceNames[rootId] = resourceName
     self:_buildLookups(result, nil, rootId)
 end
 
@@ -427,18 +434,75 @@ end
 ---@param rootId string The ID for this dynamic menu root.
 ---@param generator function A function(context) returning a menu table.
 ---@param dataSources table|nil A map of { [sourceName] = getterFunction }.
-function ShopNavigator:registerDynamic(rootId, generator, dataSources)
-    if not rootId or type(generator) ~= "function" then
+---@param resourceName string The name of the registering resource.
+function ShopNavigator:registerDynamic(rootId, generator, dataSources, resourceName)
+    if not resourceName then
+        print("[NativeShop] Registration failed for menu '" .. tostring(rootId) .. "': Resource name is required.")
+        return
+    end
+    if not rootId or not generator then
         print("[NativeShop] Dynamic registration failed. Invalid ID or generator.")
         return
     end
+
     if self.allData[rootId] or self.generators[rootId] then
-        print("[NativeShop] A menu with root ID '" .. rootId .. "' has already been registered. Skipping.")
+        local existingResource = self.resourceNames[rootId]
+        print(string.format("[NativeShop] A menu with root ID '%s' has already been registered by resource '%s'. Skipping registration from resource '%s'.", rootId, existingResource, resourceName))
         return
     end
 
     self.generators[rootId] = generator
     self.dataSources[rootId] = dataSources or {}
+    self.resourceNames[rootId] = resourceName
+end
+
+--- Unregisters all menus, generators, and data sources for a specific resource.
+--- Useful for handling resource stop events.
+---@param resourceName string The name of the resource to clean up.
+function ShopNavigator:unregisterResource(resourceName)
+    if type(resourceName) ~= "string" then return end
+
+    if self.currentRootId and self.resourceNames[self.currentRootId] == resourceName then
+        ShopUI.Exit()
+    end
+
+    local rootsToRemove = {}
+
+    -- 1. Identify all root IDs registered by this resource
+    for rootId, rName in pairs(self.resourceNames) do
+        if rName == resourceName then
+            table.insert(rootsToRemove, rootId)
+        end
+    end
+
+    -- 2. Clean up all internal maps for these roots
+    for _, rootId in ipairs(rootsToRemove) do
+        -- Clean up overrides and focus memory specific to child menus of this root
+        if self.menuMap[rootId] then
+            for menuId, _ in pairs(self.menuMap[rootId]) do
+                self.itemOverrides[menuId] = nil
+                self.visibilityOverrides[menuId] = nil
+                self.focusMemory[menuId] = nil
+            end
+        end
+
+        -- Clean up root-level data
+        self.allData[rootId] = nil
+        self.generators[rootId] = nil
+        self.generatorData[rootId] = nil
+        self.dataSources[rootId] = nil
+        self.resourceNames[rootId] = nil
+        self.menuMap[rootId] = nil
+        self.parentMap[rootId] = nil
+        self.focusMemory[rootId] = nil
+    end
+
+    -- 3. Scrub the rootStack (history of linked menus) of any dead roots
+    for i = #self.rootStack, 1, -1 do
+        if not self.resourceNames[self.rootStack[i].RootId] then
+            table.remove(self.rootStack, i)
+        end
+    end
 end
 
 --- Overrides the item list for a specific menu or page at runtime.
@@ -488,13 +552,14 @@ function ShopNavigator:refreshRoot(rootId)
 
     local context = self.generatorData[rootId]
 
-    local generationOk, generatedMenu = pcall(self.generators[rootId], context)
-    if not generationOk or not generatedMenu then
-        self.onError("Generator for root '" .. rootId .. "' failed during refresh: " .. tostring(generatedMenu))
+    local resourceName = self.resourceNames[rootId]
+    local result = ShopData.SafeInvoke(resourceName, self.generators[rootId], context)
+    if not result then
+        self.onError("Generator for root '" .. rootId .. "' failed during refresh: " .. tostring(result))
         return
     end
 
-    local validateOk, validatedMenu = pcall(ShopValidator.Menu, generatedMenu)
+    local validateOk, validatedMenu = pcall(ShopValidator.Menu, result)
     if not validateOk then
         self.onError("Generated menu for root '" .. rootId .. "' failed validation during refresh: " .. tostring(validatedMenu))
         return
@@ -870,6 +935,15 @@ function ShopNavigator:getCurrentMenuId()
     return self.currentMenuId
 end
 
+--- Gets the current resource name.
+--- @returns string|nil The name of the resource that registered the current menu, or nil if none is active.
+function ShopNavigator:getCurrentResourceName()
+    if self.currentRootId then
+        return self.resourceNames[self.currentRootId]
+    end
+    return nil
+end
+
 --- Gets the root menu object for the currently active menu tree.
 ---@return table|nil The root menu object.
 function ShopNavigator:getRootMenu()
@@ -951,14 +1025,12 @@ function ShopNavigator:getCurrentTitleEntry()
         end
     end
 
-    if type(text) == "function" then
-        local ok, result = pcall(text)
-        if ok then
-            text = result
-        else
-            self.onError("Title function failed: " .. tostring(result))
-            text = nil
-        end
+    if type(text) == "string" and string.sub(text, 1, 3) == "cb_" then
+        local resourceName = self.resourceNames[self.currentRootId]
+        text = ShopData.SafeInvoke(resourceName, text)
+        baseId = string.format("%s_%s", baseId, GetGameTimer())
+    elseif type(text) == "string" then
+        text = text
     elseif type(text) ~= "string" then
         self.onError("Title is not a string: " .. tostring(text))
         text = nil
@@ -997,14 +1069,12 @@ function ShopNavigator:getCurrentSubtitleEntry()
         end
     end
 
-    if type(text) == "function" then
-        local ok, result = pcall(text)
-        if ok then
-            text = result
-        else
-            self.onError("Subtitle function failed: " .. tostring(result))
-            text = nil
-        end
+    if type(text) == "string" and string.sub(text, 1, 3) == "cb_" then
+        local resourceName = self.resourceNames[self.currentRootId]
+        text = ShopData.SafeInvoke(resourceName, text)
+        baseId = string.format("%s_%s", baseId, GetGameTimer())
+    elseif type(text) == "string" then
+        text = text
     elseif type(text) ~= "string" then
         self.onError("Subtitle is not a string: " .. tostring(text))
         text = nil

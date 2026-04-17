@@ -96,7 +96,7 @@ local data = {
     }
 }
 
-ShopNavigator:register(data)
+ShopApi.Register(data)
 
 AddEventHandler("native_shop:item_action", function(event)
     if ShopNavigator:getCurrentMenuId() ~= MENU_ID then

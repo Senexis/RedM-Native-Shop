@@ -88,4 +88,4 @@ local data = {
     },
 }
 
-ShopNavigator:register(data)
+ShopApi.Register(data)

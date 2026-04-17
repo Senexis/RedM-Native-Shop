@@ -191,4 +191,4 @@ AddEventHandler("native_shop:item_selected", function(event)
     end
 end)
 
-ShopNavigator:register(data, { BasicShopItems = getBasicShopItems })
+ShopApi.Register(data, { BasicShopItems = getBasicShopItems })

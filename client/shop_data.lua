@@ -1,4 +1,8 @@
-ShopData = {}
+local CURRENT_RESOURCE <const> = GetCurrentResourceName()
+
+ShopData = {
+    pendingRequests = {},
+}
 
 ShopData.state = {
     eventFlags = 0,
@@ -16,6 +20,43 @@ ShopData.state = {
     currentMenuId = nil,
     currentMenu = nil,
 }
+
+RegisterNetEvent(CURRENT_RESOURCE .. ":internal:receiveResponse")
+AddEventHandler(
+    CURRENT_RESOURCE .. ":internal:receiveResponse",
+    function(reqId, data)
+        if ShopData.pendingRequests[reqId] then
+            ShopData.pendingRequests[reqId](data)
+            ShopData.pendingRequests[reqId] = nil
+        end
+    end
+)
+
+function ShopData.SafeInvoke(ownerRes, cbId, ...)
+    if not ownerRes then
+        print("[NativeShop] Attempted to invoke a callback with no owner resource specified.")
+        return
+    elseif not cbId or type(cbId) ~= "string" then
+        print("[NativeShop] Attempted to invoke a callback with missing callback ID: " .. tostring(cbId))
+        return
+    elseif string.sub(cbId, 1, 3) ~= "cb_" then
+        print("[NativeShop] Attempted to invoke a callback with an invalid callback ID: " .. tostring(cbId))
+        return
+    end
+
+    local p = promise.new()
+    local reqId = math.random(10000, 99999)
+
+    ShopData.pendingRequests[reqId] = function(data)
+        p:resolve(data)
+    end
+
+    -- Trigger the user resource's dispatcher
+    TriggerEvent(ownerRes .. ":internal:dispatch", cbId, reqId, ...)
+
+    -- Wait for the response
+    return Citizen.Await(p)
+end
 
 function ShopData.GetEventFlag(flag)
     return ShopData.state.eventFlags & flag ~= 0
@@ -117,10 +158,8 @@ function ShopData.MaintainEvents()
 
                 ShopData.state.onTickRunning = true
 
-                local success, error = pcall(currentMenu.Tick)
-                if not success then
-                    print("[NativeShop] Error in Tick function: " .. tostring(error))
-                end
+                local resourceName = ShopNavigator:getCurrentResourceName()
+                ShopData.SafeInvoke(resourceName, currentMenu.Tick)
 
                 ShopData.state.onTickRunning = false
             end)
@@ -193,22 +232,25 @@ function ShopData.MaintainEvents()
 
     -- Happens when an item is selected/activated
     if ShopData.GetEventFlag(ShopEvents.FLAG_ITEM_SELECTED) then
-        if ShopData.GetEventFlag(ShopEvents.FLAG_EXIT) then
-            local result = ShopNavigator:navigateBack()
+        local action = ShopEvents.state.lastAction
+        local actionParameter = ShopEvents.state.lastActionParameter
+        local selectedIndex = ShopEvents.state.selectedIndex
 
+        if ShopData.GetEventFlag(ShopEvents.FLAG_EXIT) then
+            ShopUI.state.currentItemEntriesByIndex = {}
+            ShopUI.state.currentItemIndecesById = {}
+
+            local result = ShopNavigator:navigateBack()
             if type(result) == "number" then
                 ShopUI.PrevScene()
                 ShopData.state.entryFocusIndex = result
-                ShopUI.state.currentItemEntriesByIndex = {}
-                ShopUI.state.currentItemIndecesById = {}
+                ShopUI.Events.HandleItemSelect(selectedIndex, action, actionParameter)
             else
                 ShopUI.Exit()
             end
+        else
+            ShopUI.Events.HandleItemSelect(selectedIndex, action, actionParameter)
         end
-
-        local action = ShopEvents.state.lastAction
-        local actionParameter = ShopEvents.state.lastActionParameter
-        ShopUI.Events.HandleItemSelect(action, actionParameter)
     end
 
     -- Happens when an item is unfocused/unhighlighted

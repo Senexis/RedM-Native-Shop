@@ -282,4 +282,4 @@ while HasStreamedTxdLoaded("moonshiner_requests") ~= 1 do
     Wait(0)
 end
 
-ShopNavigator:register(data)
+ShopApi.Register(data)

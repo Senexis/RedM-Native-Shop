@@ -65,7 +65,7 @@ local data = {
     },
 }
 
-ShopNavigator:register(data)
+ShopApi.Register(data)
 
 CreateThread(function()
     while true do
@@ -98,7 +98,7 @@ CreateThread(function()
                     end
 
                     if UiPromptGetProgress(prompt) == 1.0 then
-                        TriggerEvent("native_shop:open", MENU_ID)
+                        ShopApi.Open(MENU_ID)
                     end
 
                     UiPromptDelete(prompt)

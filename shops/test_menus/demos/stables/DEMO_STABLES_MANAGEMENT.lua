@@ -19,7 +19,6 @@ local function getHorseSlots()
         local slotLabel = owned and nickname or string.format("Empty Stall %d", item.Id)
         -- local auto = owned and item.Horse or false
         local linkMenu = owned and "DEMO_STABLES_HORSE_OPTIONS" or "DEMO_STABLES_BROWSE"
-        local linkData = owned and item or nil
         local selectPromptLabel = owned and "Upgrade" or "Purchase"
         local togglePromptVisible = owned
         local togglePromptLabel = active and "Stable" or "Make Active"
@@ -42,7 +41,7 @@ local function getHorseSlots()
             -- Auto = auto,
             LinkMenuId = linkMenu,
             LinkPageId = nil,
-            LinkData = linkData,
+            LinkData = item.Id,
             Data = {
                 FrontSlotTextureVisible = owned,
                 FrontSlotTextureDictionary = owned and "BLIPS" or nil,
@@ -54,6 +53,7 @@ local function getHorseSlots()
             },
             Metadata = {
                 Slot = item.Id,
+                Owned = owned,
             }
         })
     end
@@ -61,7 +61,7 @@ local function getHorseSlots()
     return items
 end
 
-ShopNavigator:register(data, { HorseSlots = getHorseSlots })
+ShopApi.Register(data, { HorseSlots = getHorseSlots })
 
 AddEventHandler("native_shop:item_action", function(event)
     if ShopNavigator:getCurrentMenuId() ~= MENU_ID then
@@ -76,6 +76,7 @@ AddEventHandler("native_shop:item_action", function(event)
         for _, item in ipairs(INVENTORY_DEMO) do
             local label = event.Item and event.Item.Label
             local metadata = event.Item and event.Item.Metadata or {}
+            if not metadata.Owned then return end
             local slot = metadata.Slot or event.Index
             if item.Id == slot then
                 if item.Active then

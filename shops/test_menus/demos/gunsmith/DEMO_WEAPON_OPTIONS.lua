@@ -610,4 +610,4 @@ local function getWeaponOptionsMenu(weapon)
     }
 end
 
-ShopNavigator:registerDynamic("DEMO_WEAPON_OPTIONS", getWeaponOptionsMenu)
+ShopApi.RegisterDynamic("DEMO_WEAPON_OPTIONS", getWeaponOptionsMenu)

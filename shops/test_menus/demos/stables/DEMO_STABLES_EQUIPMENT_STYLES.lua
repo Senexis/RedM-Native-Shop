@@ -33,4 +33,4 @@ local function getMenu()
     }
 end
 
-ShopNavigator:registerDynamic("DEMO_STABLES_EQUIPMENT_STYLES", getMenu)
+ShopApi.RegisterDynamic("DEMO_STABLES_EQUIPMENT_STYLES", getMenu)

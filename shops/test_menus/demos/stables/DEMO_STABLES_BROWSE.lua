@@ -50,4 +50,4 @@ local function getStablesMenu()
     }
 end
 
-ShopNavigator:registerDynamic("DEMO_STABLES_BROWSE", getStablesMenu)
+ShopApi.RegisterDynamic("DEMO_STABLES_BROWSE", getStablesMenu)

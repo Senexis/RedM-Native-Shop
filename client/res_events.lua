@@ -52,12 +52,10 @@ AddEventHandler("onResourceStop", function(resourceName)
     end
 
     local success, error = pcall(ShopUI.Exit)
-
-    -- If something went wrong, close the UI to prevent the user from getting stuck
     if not success then
         print("[NativeShop] An error occurred while exiting the shop UI on resource stop: ")
         print("  " .. tostring(error))
-
-        CloseUiappImmediate("shop_menu")
     end
+
+    CloseUiappImmediate("shop_menu")
 end)

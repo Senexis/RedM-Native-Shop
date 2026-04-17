@@ -80,4 +80,4 @@ local function getFastTravelItems(filter)
     return items
 end
 
-ShopNavigator:register(data, { FastTravelItems = getFastTravelItems })
+ShopApi.Register(data, { FastTravelItems = getFastTravelItems })

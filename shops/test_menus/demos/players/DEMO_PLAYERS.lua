@@ -55,4 +55,4 @@ local function getPlayerItems(filter)
     return items
 end
 
-ShopNavigator:register(data, { PlayerItems = getPlayerItems })
+ShopApi.Register(data, { PlayerItems = getPlayerItems })
