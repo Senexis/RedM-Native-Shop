@@ -19,6 +19,8 @@ ShopData.state = {
     rootMenu = nil,
     currentMenuId = nil,
     currentMenu = nil,
+    holdToExitStart = nil,
+    holdToExitPromptShown = false,
 }
 
 RegisterNetEvent(CURRENT_RESOURCE .. ":internal:receiveResponse")
@@ -168,6 +170,37 @@ function ShopData.MaintainEvents()
         end
     end
 
+    -- Implement the back button hold-to-exit behavior
+    if
+        Config.HoldToExit and
+        not rootMenu.PreventHoldToExit and
+        not currentMenu.PreventHoldToExit and
+        not ShopData.state.shuttingDown
+    then
+        if IsUiappTransitioningByHash("shop_menu") == 1 then
+            ShopData.state.holdToExitStart = nil
+            ShopData.state.holdToExitPromptShown = false
+        else
+            local backHeld = IsControlPressed(0, "INPUT_GAME_MENU_CANCEL")
+            if backHeld and not ShopData.state.holdToExitStart then
+                ShopData.state.holdToExitStart = GetGameTimer()
+            elseif backHeld and ShopData.state.holdToExitStart then
+                local heldDuration = GetGameTimer() - ShopData.state.holdToExitStart
+
+                if heldDuration >= Config.HoldToExitPromptMs and not ShopData.state.holdToExitPromptShown then
+                    ShopUI.Prompts.SetHoldToExitPrompt()
+                    ShopData.state.holdToExitPromptShown = true
+                elseif heldDuration >= Config.HoldToExitCloseMs then
+                    ShopUI.Exit()
+                end
+            elseif not backHeld then
+                ShopData.state.holdToExitStart = nil
+                ShopData.state.holdToExitPromptShown = false
+                ShopUI.Prompts.UpdateBackPrompt()
+            end
+        end
+    end
+
     -- Update horse stats if a ped is available
     -- if ShopData.state.pedForHorseStats and not ShopData.state.shuttingDown then
     --     if DoesEntityExist(ShopData.state.pedForHorseStats) == 1 then
@@ -237,16 +270,22 @@ function ShopData.MaintainEvents()
         local selectedIndex = ShopEvents.state.selectedIndex
 
         if ShopData.GetEventFlag(ShopEvents.FLAG_EXIT) then
-            ShopUI.state.currentItemEntriesByIndex = {}
-            ShopUI.state.currentItemIndecesById = {}
+            if
+                not currentMenu.Prompts or
+                not currentMenu.Prompts.Back or
+                (currentMenu.Prompts.Back.Visible ~= false and currentMenu.Prompts.Back.Enabled ~= false)
+            then
+                ShopUI.state.currentItemEntriesByIndex = {}
+                ShopUI.state.currentItemIndecesById = {}
 
-            local result = ShopNavigator:navigateBack()
-            if type(result) == "number" then
-                ShopUI.PrevScene()
-                ShopData.state.entryFocusIndex = result
-                ShopUI.Events.HandleItemSelect(selectedIndex, action, actionParameter)
-            else
-                ShopUI.Exit()
+                local result = ShopNavigator:navigateBack()
+                if type(result) == "number" then
+                    ShopUI.PrevScene()
+                    ShopData.state.entryFocusIndex = result
+                    ShopUI.Events.HandleItemSelect(selectedIndex, action, actionParameter)
+                else
+                    ShopUI.Exit()
+                end
             end
         else
             ShopUI.Events.HandleItemSelect(selectedIndex, action, actionParameter)

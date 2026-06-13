@@ -11,6 +11,7 @@ local SCHEMAS <const> = {
         Validate = { type = "boolean", optional = true },
         AllowWalking = { type = "boolean", optional = true },
         RepositionCamera = { type = "boolean", optional = true },
+        PreventHoldToExit = { type = "boolean", optional = true },
         Prompts = {
             type = "table",
             optional = true,
@@ -49,6 +50,7 @@ local SCHEMAS <const> = {
     Item = {
         Id = { type = { "string", "number" } },
         Scene = { type = "string", optional = true },
+        PreventHoldToExit = { type = "boolean", optional = true },
         Title = { type = { "string", "function" }, optional = true },
         Subtitle = { type = { "string", "function" }, optional = true },
         Type = { type = "string", optional = true },

@@ -136,6 +136,7 @@ local data = {
         },
         {
             Id = "DEMO_MANUAL_BACK",
+            PreventHoldToExit = true,
             Type = "TEXT",
             Label = "Manual Back",
             Prompts = {
@@ -154,6 +155,26 @@ local data = {
                         ItemDescription = "This is the only way to go back.",
                     }
                 },
+            }
+        },
+        {
+            Id = "DEMO_HOLD_TO_EXIT",
+            Type = "TEXT",
+            Label = "Hold To Exit",
+            Prompts = {
+                Back = { Visible = false }
+            },
+            Data = {
+                ItemDescription = "Showcases an example of a menu with the hold-to-exit functionality enabled, but with no back prompt shown.",
+            },
+            Items = {
+                {
+                    Id = "ACTION_DISABLED",
+                    Type = "TEXT",
+                    Label = "Hold back to exit",
+                    Disabled = true,
+                    Footer = "Hold ~INPUT_GAME_MENU_CANCEL~ to exit"
+                }
             }
         },
         {

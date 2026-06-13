@@ -13,3 +13,18 @@ Config.Validate = false
 -- ensuring that no shop system keys are accidentally used for other purposes,
 -- and for checking that there are no spelling mistakes in keys.
 Config.EnforceMetadata = false
+
+-- Whether to enable the hold-to-exit functionality for menus
+-- Enabling this allows the player to hold the back button to exit the menu for ease
+-- of use. Menus can also individually disable this by setting `PreventHoldToExit`.
+Config.HoldToExit = true
+
+-- Configure the amount of time in miliseconds that the back button needs to be held
+-- before the "Closing..." text is shown. If the user release the back button during
+-- this time, the prompt will be reset to its original state, depending on the menu.
+Config.HoldToExitPromptMs = 250
+
+-- Configure the amount of time in miliseconds that the back button needs to be held
+-- before the menu is actually closed. If the user release the back button during
+-- this time, the prompt will be reset to its original state, depending on the menu.
+Config.HoldToExitCloseMs = 1250

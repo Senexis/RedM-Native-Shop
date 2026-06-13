@@ -2355,13 +2355,24 @@ function ShopUI.Prompts.UpdateBackPrompt()
             held = backData.Held == true
         end
 
+        if held == true then
+            print("[NativeShop] Warning: Back prompt cannot be held. Ignoring 'Held' property.")
+        end
+
         ShopUI.Prompts.SetPromptLabel(7, label)
         ShopUI.Prompts.SetPromptEnabled(7, not disabled)
         ShopUI.Prompts.SetPromptVisible(7, true)
-        ShopUI.Prompts.SetPromptHeld(7, held)
+        ShopUI.Prompts.SetPromptHeld(7, false)
     else
         ShopUI.Prompts.ClearPrompt(7)
     end
+end
+
+function ShopUI.Prompts.SetHoldToExitPrompt()
+    ShopUI.Prompts.SetPromptLabel(7, GetStringFromHashKey("SHOP_INDEX_CLOSING"))
+    ShopUI.Prompts.SetPromptEnabled(7, true)
+    ShopUI.Prompts.SetPromptVisible(7, true)
+    ShopUI.Prompts.SetPromptHeld(7, false)
 end
 
 function ShopUI.Prompts.SetPromptLabel(type, label)
