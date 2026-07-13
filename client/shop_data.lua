@@ -342,4 +342,11 @@ function ShopData.MaintainEvents()
             print("  Request Parameter: " .. tostring(ShopEvents.state.collectionRequestParameter))
         end
     end
+
+    if ShopData.GetEventFlag(ShopEvents.FLAG_TOAST_INTERACTION) then
+        ShopUI.Events.HandleToastInteraction(
+            ShopEvents.state.toastParameter1,
+            ShopEvents.state.toastParameter2
+        )
+    end
 end

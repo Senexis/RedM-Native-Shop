@@ -14,6 +14,7 @@ ShopEvents = {
     FLAG_STEPPER_DELTA_CHANGE = 1 << 14,
     FLAG_UNFOCUSED = 1 << 15,
     FLAG_STEPPER_ABSOLUTE_CHANGE = 1 << 16,
+    FLAG_TOAST_INTERACTION = 1 << 17,
 }
 
 ShopEvents.state = {
@@ -36,7 +37,9 @@ ShopEvents.state = {
     paletteIndex = 0,
     collectionId = -1,
     collectionStartIndex = 0,
-    collectionRequestParameter = 0
+    collectionRequestParameter = 0,
+    toastParameter1 = 0,
+    toastParameter2 = 0,
 }
 
 function ShopEvents.PopEventFlags()
@@ -320,6 +323,24 @@ CreateThread(function()
                     ShopEvents.state.collectionStartIndex = intParameter
                     ShopEvents.SetEventFlag(ShopEvents.FLAG_COLLECTION_REQUEST)
                     ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
+                elseif eventType == "FEED_MESSAGE_INTERACTED" then
+                    -- Certain toast setups will spam interaction events, ignore subsequent events
+                    if ShopEvents.GetEventFlag(ShopEvents.FLAG_TOAST_INTERACTION) then
+                        goto skip
+                    end
+
+                    -- Entry point needs to be set before opening the menu, so make an exception and set it here
+                    if intParameter == `SET_ENTRY` then
+                        ShopData.state.entryFocusIndex = datastoreId or 1
+                    end
+
+                    -- Toast interactions should always open a menu, so open one through the hash param
+                    ShopUI.Open(hashParameter, true)
+
+                    ShopEvents.state.toastParameter1 = intParameter
+                    ShopEvents.state.toastParameter2 = datastoreId
+                    ShopEvents.SetEventFlag(ShopEvents.FLAG_TOAST_INTERACTION)
+                    ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
                 else
                     print("[NativeShop] Received unhandled event type:")
                     print("  Event ID: " .. tostring(eventHash))
@@ -331,6 +352,7 @@ CreateThread(function()
                 end
             end
 
+            ::skip::
             EventsUiPopMessage(`generic_shop_ui_events`)
         end
 

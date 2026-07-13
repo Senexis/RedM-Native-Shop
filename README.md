@@ -62,6 +62,10 @@ AddEventHandler("native_shop:closing", function(data)
     print("Menu Closing Event:", json.encode(data))
 end)
 
+AddEventHandler("native_shop:toast_interaction", function(data)
+    print("Toast Interaction Event:", json.encode(data))
+end)
+
 AddEventHandler("native_shop:menu_selected", function(data)
     print("Menu Selected Event:", json.encode(data))
 end)
@@ -97,6 +101,35 @@ end)
 AddEventHandler("native_shop:page_refreshed", function(data)
     print("Page Refreshed Event:", json.encode(data))
 end)
+```
+
+## Toasts
+
+Toasts are notifications that appear at the left side of the screen which can be interacted with depending on the configuration of the toast. Native Shop provides a native integration with the game's toast system, allowing you to open any many you want from an interactive toast. Here's an example of how to create a toast that opens a menu to a specific entry when interacted with:
+
+> [!IMPORTANT]
+> This example uses [my toast resource code](https://gist.github.com/Senexis/2e50584b81315fc14f05f02553b74e07).
+
+```lua
+UiFeedPostToast(
+  {
+    duration = 5000,                                            -- Required, feel free to change
+    interactionAppId = "shop_menu",                             -- Required, don't change
+    interactionAppEntry = "generic_shop",                       -- Required, don't change
+    interactionText = "Hold ~INPUT_FEED_INTERACT~ for details", -- Required, feel free to change
+    scriptEventChannelHash = "GENERIC_SHOP_UI_EVENTS",          -- Required, don't change
+    scriptEventHashParameter = "TEST_MENU",                     -- Required, set to the menu you want to open
+    scriptEventIntParameter = "SET_ENTRY",                      -- Optional, use this to set the entry position
+    scriptEventDatastoreParameter = 3,                          -- Optional, use this to set the entry position
+  },
+  {
+    titleText = "My Example Toast",                             -- Required, feel free to change
+    bodyText = "Interact with this toast to open the menu",     -- Required, feel free to change
+    iconDictionaryHash = "hud_toasts",                          -- Required, feel free to change
+    iconTextureHash = "toast_catalogue",                        -- Required, feel free to change
+    iconColorHash = "COLOR_PURE_WHITE",                         -- Required, feel free to change
+  }
+)
 ```
 
 ## Attribution

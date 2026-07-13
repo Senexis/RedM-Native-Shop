@@ -29,7 +29,7 @@ local function getWeaponItems(filter)
             local stats = GetWeaponStats(item.Id)
 
             -- You'll want to improve these, just for demo purposes
-            local owned = HasPedGotWeapon(PlayerPedId(), item.Id, false) == 1
+            local owned = HasPedGotWeapon(PlayerPedId(), item.Id, 0, true) == 1
             local secondary = owned and (IsWeaponOneHanded(item.Id) == 1)
 
             if owned then

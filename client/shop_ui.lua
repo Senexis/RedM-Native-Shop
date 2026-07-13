@@ -366,10 +366,14 @@ function ShopUI.PrevScene()
     return RequestUiappTransitionByHash("shop_menu", "prev_scene")
 end
 
-function ShopUI.Open(id)
-    if IsUiappRunning("shop_menu") == 1 then
+function ShopUI.Open(id, fromToast)
+    if not fromToast and IsUiappRunning("shop_menu") == 1 then
         print("[NativeShop] UI is already open. Please close the current menu before opening a new one.")
         return
+    end
+
+    if fromToast then
+        id = ShopNavigator:getMenuIdByHash(id)
     end
 
     ShopData.state.shuttingDown = false
@@ -428,7 +432,9 @@ function ShopUI.OnOpen()
         end
     end
 
-    LaunchUiappWithEntry("shop_menu", "generic_shop")
+    if IsUiappRunning("shop_menu") ~= 1 then
+        LaunchUiappWithEntry("shop_menu", "generic_shop")
+    end
 
     CreateThread(function()
         -- Only hook into the always-running event handler while the UI is open
@@ -460,7 +466,10 @@ function ShopUI.Exit()
     ShopData.state.hiddenMenu = nil
     ShopData.state.entryFocusIndex = 1
 
-    TriggerEvent("native_shop:closing", ShopNavigator:getCurrentMenuId())
+    if ShopNavigator:getCurrentMenuId() then
+        TriggerEvent("native_shop:closing", ShopNavigator:getCurrentMenuId())
+    end
+
     ShopUI.OnShutdown()
 end
 
@@ -707,6 +716,16 @@ function ShopUI.GetItemValue(item)
     return nil
 end
 
+function ShopUI.Events.HandleToastInteraction(parameter1, parameter2)
+    TriggerEvent("native_shop:toast_interaction", {
+        MenuId = ShopNavigator:getCurrentMenuId(),
+        Parameter1 = parameter1,
+        Parameter2 = parameter2,
+    })
+
+    return true
+end
+
 function ShopUI.Events.HandleItemSelect(index, event, eventParameter)
     local EVENT_MAP <const> = {
         GENERIC_SHOP_UI_SELECT           = { key = "select", prompt = "Select" },
@@ -847,7 +866,7 @@ function ShopUI.Events.HandleItemSceneFocus(item)
     local scene = currentMenu.Scene or rootMenu.Scene or "MENU_LIST"
     if not scene then return false end
 
-    local callbacks = {
+    local CALLBACKS <const> = {
         BOUNTY_MANAGEMENT = ShopUI.Events.HandleBountyManagementFocus,
         CLOTHING_MODIFY = ShopUI.Events.HandleClothingModifyFocus,
         CLOTHING_STAT_INFO_BOX = ShopUI.Events.HandleClothingItemInfoBoxFocus,
@@ -874,7 +893,7 @@ function ShopUI.Events.HandleItemSceneFocus(item)
         WEAPON_MANAGEMENT = ShopUI.Events.HandleWeaponManagementFocus,
     }
 
-    local callback = callbacks[scene]
+    local callback = CALLBACKS[scene]
     if callback then return callback(item) end
 
     return true
@@ -1486,7 +1505,7 @@ function ShopUI.Builder.BuildScene(scene, menu)
         return false
     end
 
-    local callbacks = {
+    local CALLBACKS <const> = {
         BOUNTY_MANAGEMENT = ShopUI.Builder.BuildBountyManagementScene,
         CLOTHING_MODIFY = ShopUI.Builder.BuildClothingModifyScene,
         CLOTHING_STAT_INFO_BOX = ShopUI.Builder.BuildClothingItemInfoBoxScene,
@@ -1521,7 +1540,7 @@ function ShopUI.Builder.BuildScene(scene, menu)
     ShopUI.UpdateSubheader()
     ShopUI.Scene.SetFooter()
 
-    local callback = callbacks[scene]
+    local callback = CALLBACKS[scene]
     if callback then return callback(menu) end
 
     return true
@@ -1814,7 +1833,7 @@ function ShopUI.Builder.FillItem(entry, item)
         DatabindingAddDataInt(entry, "MenuIndex", itemIndex)
     end
 
-    local callbacks = {
+    local CALLBACKS <const> = {
         BUSINESS = ShopUI.Builder.FillBusinessItem,
         COUPON = ShopUI.Builder.FillCouponItem,
         HAIR = ShopUI.Builder.FillHairItem,
@@ -1825,7 +1844,7 @@ function ShopUI.Builder.FillItem(entry, item)
         TEXT = ShopUI.Builder.FillTextItem,
     }
 
-    local callback = callbacks[item.Type]
+    local callback = CALLBACKS[item.Type]
     local result = false
 
     local menu = ShopNavigator:getCurrentMenu()

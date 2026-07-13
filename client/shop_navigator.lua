@@ -3,6 +3,7 @@
 ---@field generators table A map of { [rootId] = generatorFunction } for dynamic root menus.
 ---@field generatorData table A map of { [rootId] = lastLinkData } to track context for persistence.
 ---@field dataSources table A map of { [rootId] = { [sourceName] = getterFunction } }
+---@field joaatMap table A map of { [menuId] = joaat(menuId) } for hash lookups.
 ---@field menuMap table A map of { [menuId] = menuObject } for fast static menu access.
 ---@field parentMap table A map of { [childId] = parentId } for back-navigation context.
 ---@field itemOverrides table A map of { [menuId] = itemArray } for runtime overrides.
@@ -26,6 +27,7 @@ ShopNavigator.generators = {}
 ShopNavigator.generatorData = {}
 ShopNavigator.dataSources = {}
 ShopNavigator.resourceNames = {}
+ShopNavigator.joaatMap = {}
 ShopNavigator.menuMap = {}
 ShopNavigator.parentMap = {}
 ShopNavigator.itemOverrides = {}
@@ -104,6 +106,9 @@ end
 ---@param rootId string The ID of the root menu for this tree.
 function ShopNavigator:_buildLookups(menu, parentId, rootId)
     if not menu or not menu.Id or not rootId then return end
+
+    self.joaatMap[joaat(rootId)] = rootId
+    self.joaatMap[joaat(menu.Id)] = menu.Id
 
     self.menuMap[rootId] = self.menuMap[rootId] or {}
     self.parentMap[rootId] = self.parentMap[rootId] or {}
@@ -629,6 +634,15 @@ function ShopNavigator:restore()
         return self.focusMemory[self.currentMenuId] or 1
     end
     return nil
+end
+
+--- Retrieves the menu ID corresponding to a given hash.
+--- If the input is already a string ID, it is returned as-is.
+---@param id number|string The hash or string ID of the menu.
+---@return string|number The resolved menu ID or the original input if not found.
+function ShopNavigator:getMenuIdByHash(id)
+    if type(id) ~= "number" then return id end
+    return self.joaatMap[id] or id
 end
 
 --- Jumps to a menu by its ID, clearing all navigation history.
