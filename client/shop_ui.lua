@@ -1401,8 +1401,8 @@ function ShopUI.Events.HandleStepperChange(value)
     local datastore = ShopEvents.state.focusedDatastore
     if not datastore then return true end
 
-    local focusIndex = ShopEvents.state.focusedIndex + 1
-    local item = ShopNavigator:getItemByIndex(focusIndex)
+    local focusedIndex = ShopEvents.state.focusedIndex + 1
+    local item = ShopNavigator:getItemByIndex(focusedIndex)
     if not item then return true end
 
     local id = item.Id
@@ -1434,7 +1434,7 @@ function ShopUI.Events.HandleStepperChange(value)
         TriggerEvent("native_shop:adjustable_changed", {
             MenuId = item.MenuId,
             ID = id,
-            Index = focusIndex,
+            Index = focusedIndex,
             Item = item,
             Value = value,
             Type = "SLIDER",
@@ -1462,7 +1462,7 @@ function ShopUI.Events.HandleStepperChange(value)
         TriggerEvent("native_shop:adjustable_changed", {
             MenuId = item.MenuId,
             ID = id,
-            Index = focusIndex,
+            Index = focusedIndex,
             Item = item,
             Value = value + 1,
             Type = "PALETTE",
@@ -1482,14 +1482,14 @@ function ShopUI.Events.HandleStepperChange(value)
         TriggerEvent("native_shop:adjustable_changed", {
             MenuId = item.MenuId,
             ID = id,
-            Index = focusIndex,
+            Index = focusedIndex,
             Item = item,
             Value = value + 1,
             Type = "STEPPER",
         })
     end
 
-    ShopUI.Events.HandleItemSelect(focusIndex, "DATA_ADJUSTABLE_CHANGED", value)
+    ShopUI.Events.HandleItemSelect(ShopEvents.state.focusedIndex, "DATA_ADJUSTABLE_CHANGED", value)
 
     return true
 end
