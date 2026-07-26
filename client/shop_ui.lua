@@ -435,23 +435,6 @@ function ShopUI.OnOpen()
     if IsUiappRunning("shop_menu") ~= 1 then
         LaunchUiappWithEntry("shop_menu", "generic_shop")
     end
-
-    CreateThread(function()
-        -- Only hook into the always-running event handler while the UI is open
-        while IsUiappRunning("shop_menu") == 1 do
-            Wait(0)
-
-            local success, error = pcall(ShopData.MaintainEvents)
-
-            -- If something went wrong, close the UI to prevent the user from getting stuck
-            if not success then
-                print("[NativeShop] An error occurred while processing shop events: ")
-                print("  " .. tostring(error))
-
-                CloseUiappImmediate("shop_menu")
-            end
-        end
-    end)
 end
 
 function ShopUI.Hide()

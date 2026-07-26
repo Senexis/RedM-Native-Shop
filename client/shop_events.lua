@@ -356,6 +356,20 @@ CreateThread(function()
             EventsUiPopMessage(`generic_shop_ui_events`)
         end
 
+        -- Process the events and maintain the shop state, handling any errors that may occur
+        -- To save resources, we only process events while the shop UI is open or transitioning
+        if IsUiappRunning("shop_menu") == 1 or IsUiappTransitioningByHash("shop_menu") == 1 then
+            local success, error = pcall(ShopData.MaintainEvents)
+
+            -- If something went wrong, close the UI to prevent the user from getting stuck
+            if not success then
+                print("[NativeShop] An error occurred while processing shop events: ")
+                print("  " .. tostring(error))
+
+                CloseUiappImmediate("shop_menu")
+            end
+        end
+
         Wait(0)
         ::continue::
     end
