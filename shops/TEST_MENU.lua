@@ -69,12 +69,12 @@ ShopApi.Register(data)
 
 CreateThread(function()
     while true do
-        if IsUiappRunning("shop_menu") == 1 then
+        if IsUiappRunning("shop_menu") == 1 or IsUiappTransitioningByHash("shop_menu") == 1 then
             Wait(250)
             goto continue
         end
 
-        if IsControlJustPressed(0, "INPUT_PHOTO_MODE") and IsUiappRunning("shop_menu") ~= 1 then
+        if IsControlJustPressed(0, "INPUT_PHOTO_MODE") then
             local prompt = 0
 
             -- Create prompt

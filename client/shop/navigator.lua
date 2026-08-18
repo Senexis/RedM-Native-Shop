@@ -929,18 +929,14 @@ function ShopNavigator:getItemById(id)
     return nil
 end
 
---- Gets the current menu object, including a calculated `Disabled` state.
+--- Gets the current menu object.
 ---@return table|nil The current menu object.
 function ShopNavigator:getCurrentMenu()
     local menu = self:_getRawCurrentMenu()
-    if menu then
-        local processedMenu = shallowCopy(menu)
-        if #self.currentItems == 0 then
-            processedMenu.Disabled = true
-        end
-        return processedMenu
-    end
-    return nil
+    if not menu then return nil end
+
+    menu.Disabled = #self.currentItems == 0
+    return menu
 end
 
 --- Gets the current menu ID.

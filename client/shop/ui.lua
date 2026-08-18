@@ -342,13 +342,11 @@ end
 
 function ShopUI.SetIndex(index)
     local collectionId = ShopEvents.collectionId
-
-    if VirtualCollectionExists(collectionId) then
-        VirtualCollectionSetInterestIndex(collectionId, index)
-    else
-        print("[NativeShop] Collection does not exist: " .. tostring(collectionId))
+    if VirtualCollectionExists(collectionId) ~= 1 then
+        return
     end
 
+    VirtualCollectionSetInterestIndex(collectionId, index)
     DatabindingAddDataInt(ShopUI.bindings.dscMain, "ItemListEntryIndex", index)
 end
 
@@ -597,12 +595,13 @@ function ShopUI.RefreshItem(idOrIndex)
     local entryType = ShopEvents:GetItemType(entry)
     if itemType ~= entryType then
         local collectionId = ShopEvents.collectionId
-        if VirtualCollectionExists(collectionId) then
-            ShopData.entryFocusIndex = index
-            VirtualCollectionReset(collectionId)
-        else
-            print("[NativeShop] Collection does not exist: " .. tostring(collectionId))
+        if VirtualCollectionExists(collectionId) ~= 1 then
+            return
         end
+
+        ShopData.entryFocusIndex = index
+        VirtualCollectionReset(collectionId)
+
         return
     end
 
