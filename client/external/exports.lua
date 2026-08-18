@@ -9,13 +9,13 @@
 -- Shop event exports: Interact with native event loop
 -- ===================================================================
 
-exports("GetFocusedItemId", ShopEvents.GetFocusedItemId)
-exports("GetFocusedItemType", ShopEvents.GetFocusedItemType)
-exports("GetUnfocusedItemId", ShopEvents.GetUnfocusedItemId)
-exports("GetUnfocusedItemType", ShopEvents.GetUnfocusedItemType)
-exports("GetSelectedItemId", ShopEvents.GetSelectedItemId)
-exports("GetSelectedItemType", ShopEvents.GetSelectedItemType)
-exports("GetSelectedTargetMenu", ShopEvents.GetSelectedTargetMenu)
+exports("GetFocusedItemId", function () return ShopEvents:GetFocusedItemId() end)
+exports("GetFocusedItemType", function () return ShopEvents:GetFocusedItemType() end)
+exports("GetUnfocusedItemId", function () return ShopEvents:GetUnfocusedItemId() end)
+exports("GetUnfocusedItemType", function () return ShopEvents:GetUnfocusedItemType() end)
+exports("GetSelectedItemId", function () return ShopEvents:GetSelectedItemId() end)
+exports("GetSelectedItemType", function () return ShopEvents:GetSelectedItemType() end)
+exports("GetSelectedTargetMenu", function () return ShopEvents:GetSelectedTargetMenu() end)
 
 -- ===================================================================
 -- General exports: Control the shop's state and navigation

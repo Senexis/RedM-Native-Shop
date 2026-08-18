@@ -1,10 +1,6 @@
 local CURRENT_RESOURCE <const> = GetCurrentResourceName()
 
 ShopData = {
-    pendingRequests = {},
-}
-
-ShopData.state = {
     eventFlags = 0,
     shuttingDown = false,
     hiddenMenu = nil,
@@ -12,7 +8,6 @@ ShopData.state = {
     hasUiInitialized = false,
     hasEnteredFirstScene = false,
     entryFocusIndex = 1,
-    -- pedForHorseStats = nil,
     onTickRunning = false,
     onTickTimestamp = 0,
     rootMenuId = nil,
@@ -21,6 +16,7 @@ ShopData.state = {
     currentMenu = nil,
     holdToExitStart = nil,
     holdToExitPromptShown = false,
+    pendingRequests = {},
 }
 
 RegisterNetEvent(CURRENT_RESOURCE .. ":internal:receiveResponse")
@@ -34,7 +30,7 @@ AddEventHandler(
     end
 )
 
-function ShopData.SafeInvoke(ownerRes, cbId, ...)
+function ShopData:SafeInvoke(ownerRes, cbId, ...)
     if not ownerRes then
         print("[NativeShop] Attempted to invoke a callback with no owner resource specified.")
         return
@@ -49,7 +45,7 @@ function ShopData.SafeInvoke(ownerRes, cbId, ...)
     local p = promise.new()
     local reqId = math.random(10000, 99999)
 
-    ShopData.pendingRequests[reqId] = function(data)
+    self.pendingRequests[reqId] = function(data)
         p:resolve(data)
     end
 
@@ -60,12 +56,12 @@ function ShopData.SafeInvoke(ownerRes, cbId, ...)
     return Citizen.Await(p)
 end
 
-function ShopData.GetEventFlag(flag)
-    return ShopData.state.eventFlags & flag ~= 0
+function ShopData:IsFlagSet(flag)
+    return self.eventFlags & flag ~= 0
 end
 
-function ShopData.MaintainEvents()
-    if not ShopData.state.hasUiInitialized then
+function ShopData:MaintainEvents()
+    if not self.hasUiInitialized then
         ShopUI.Initialize()
 
         -- Instead of creating a new data view every frame, do it once
@@ -73,70 +69,52 @@ function ShopData.MaintainEvents()
         struct:SetString(0, "mp@spinning_orbit_cam")
         struct:SetString(64, "SPINNING_ORBIT_REQUEST")
 
-        ShopData.state.orbitCameraData = struct:Buffer()
-        ShopData.state.hasUiInitialized = true
+        self.orbitCameraData = struct:Buffer()
+        self.hasUiInitialized = true
         return
     end
 
     -- Instead of creating new menu objects every frame, update only when changes are detected
     local rootMenuId = ShopNavigator:getRootMenuId()
-    if rootMenuId ~= ShopData.state.rootMenuId then
-        ShopData.state.rootMenuId = rootMenuId
-        ShopData.state.rootMenu = ShopNavigator:getRootMenu()
+    if rootMenuId ~= self.rootMenuId then
+        self.rootMenuId = rootMenuId
+        self.rootMenu = ShopNavigator:getRootMenu()
     end
 
     local currentMenuId = ShopNavigator:getCurrentMenuId()
-    if currentMenuId ~= ShopData.state.currentMenuId then
-        ShopData.state.currentMenuId = currentMenuId
-        ShopData.state.currentMenu = ShopNavigator:getCurrentMenu()
+    if currentMenuId ~= self.currentMenuId then
+        self.currentMenuId = currentMenuId
+        self.currentMenu = ShopNavigator:getCurrentMenu()
     end
 
     -- Reassign to local variables for easier access and to avoid repeated table lookups
-    local rootMenu = ShopData.state.rootMenu
-    local currentMenu = ShopData.state.currentMenu
+    local rootMenu = self.rootMenu
+    local currentMenu = self.currentMenu
     if not rootMenu or not currentMenu then return end
 
     -- Allow moving around even though the game enforces the shop menu context
-    if rootMenu.AllowWalking and not ShopData.state.shuttingDown then
-        -- Simulates the player menu context
+    if rootMenu.AllowWalking and not self.shuttingDown then
         SetControlContext(9, "OnlinePlayerMenu")
         SetControlContext(10, 0)
-
-        -- The player menu additionally disables these controls
-        DisableControlAction(0, "INPUT_NEXT_CAMERA", false)
-        DisableControlAction(0, "INPUT_HORSE_SPRINT", false)
-        DisableControlAction(0, "INPUT_JUMP", false)
-        DisableControlAction(0, "INPUT_SPRINT", false)
-        DisableControlAction(0, "INPUT_ENTER", false)
-        DisableControlAction(0, "INPUT_MELEE_ATTACK", false)
-        DisableControlAction(0, "INPUT_PHONE", false)
-        DisableControlAction(0, "INPUT_RADIAL_MENU_SLOT_NAV_NEXT", false)
-        DisableControlAction(0, "INPUT_RADIAL_MENU_SLOT_NAV_PREV", false)
-        DisableControlAction(0, "INPUT_COVER", false)
-        DisableControlAction(0, "INPUT_OPEN_WHEEL_MENU", false)
     end
 
-    if not ShopData.state.shuttingDown then
+    if not self.shuttingDown then
+        self:DisableControls()
+
+        -- Unequip any current weapons (PLAYER::_SET_PLAYER_AIM_WEAPON)
+        local playerId = PlayerId()
+        Citizen.InvokeNative(0xCFFC3ECCD7A5CCEB, playerId, "WEAPON_UNARMED", 0)
+        Citizen.InvokeNative(0xCFFC3ECCD7A5CCEB, playerId, "WEAPON_UNARMED", 1)
+
         -- Disables miscellaneous prompts
         UiPromptEnablePromptTypeThisFrame(0)
-
-        -- Disable certain controls that would interfere with the shop UI but wouldn't with player menu
-        DisableControlAction(0, "INPUT_MAP", true)
-        DisableControlAction(0, "INPUT_SELECT_ITEM_WHEEL", true)
-        DisableControlAction(0, "INPUT_FRONTEND_PAUSE", true)
-        DisableControlAction(0, "INPUT_FRONTEND_PAUSE_ALTERNATE", true)
-        DisableControlAction(0, "INPUT_INTERACT_LOCKON", false)
-
-        -- Prevent attacking while in the shop UI
-        DisableControlAction(0, "INPUT_AIM", false)
-        DisableControlAction(0, "INPUT_ATTACK", false)
     end
 
     -- Use orbit camera (focuses the camera properly) when in the shop UI
-    if rootMenu.RepositionCamera and not ShopData.state.shuttingDown then
+    if rootMenu.RepositionCamera and not self.shuttingDown then
         Citizen.InvokeNative(0xC3742F1FDF0A6824)
 
-        local data = ShopData.state.orbitCameraData
+        local data = self.orbitCameraData
         if data and IsCameraAvailable(data) ~= 1 then
             if IsCamDataDictLoaded(data) ~= 1 then
                 LoadCameraDataDict(data)
@@ -149,24 +127,24 @@ function ShopData.MaintainEvents()
     end
 
     -- Trigger the menu's tick function if it has one
-    if currentMenu.Tick and not ShopData.state.shuttingDown then
+    if currentMenu.Tick and not self.shuttingDown then
         local waitMs = currentMenu.TickMs or 1000
         if waitMs < 0 then waitMs = 0 end
 
         local currentTime = GetGameTimer()
-        if (currentTime - ShopData.state.onTickTimestamp) >= waitMs then
+        if (currentTime - self.onTickTimestamp) >= waitMs then
             CreateThread(function()
                 if IsUiappTransitioningByHash("shop_menu") == 1 then return end
 
-                ShopData.state.onTickRunning = true
+                self.onTickRunning = true
 
                 local resourceName = ShopNavigator:getCurrentResourceName()
-                ShopData.SafeInvoke(resourceName, currentMenu.Tick)
+                self:SafeInvoke(resourceName, currentMenu.Tick)
 
-                ShopData.state.onTickRunning = false
+                self.onTickRunning = false
             end)
 
-            ShopData.state.onTickTimestamp = currentTime
+            self.onTickTimestamp = currentTime
         end
     end
 
@@ -175,53 +153,43 @@ function ShopData.MaintainEvents()
         Config.HoldToExit and
         not rootMenu.PreventHoldToExit and
         not currentMenu.PreventHoldToExit and
-        not ShopData.state.shuttingDown
+        not self.shuttingDown
     then
         if IsUiappTransitioningByHash("shop_menu") == 1 then
-            ShopData.state.holdToExitStart = nil
-            ShopData.state.holdToExitPromptShown = false
+            self.holdToExitStart = nil
+            self.holdToExitPromptShown = false
         else
             local backHeld = IsControlPressed(0, "INPUT_GAME_MENU_CANCEL")
-            if backHeld and not ShopData.state.holdToExitStart then
-                ShopData.state.holdToExitStart = GetGameTimer()
-            elseif backHeld and ShopData.state.holdToExitStart then
-                local heldDuration = GetGameTimer() - ShopData.state.holdToExitStart
+            if backHeld and not self.holdToExitStart then
+                self.holdToExitStart = GetGameTimer()
+            elseif backHeld and self.holdToExitStart then
+                local heldDuration = GetGameTimer() - self.holdToExitStart
 
-                if heldDuration >= Config.HoldToExitPromptMs and not ShopData.state.holdToExitPromptShown then
+                if heldDuration >= Config.HoldToExitPromptMs and not self.holdToExitPromptShown then
                     ShopUI.Prompts.SetHoldToExitPrompt()
-                    ShopData.state.holdToExitPromptShown = true
+                    self.holdToExitPromptShown = true
                 elseif heldDuration >= Config.HoldToExitCloseMs then
                     ShopUI.Exit()
                 end
             elseif not backHeld then
-                ShopData.state.holdToExitStart = nil
-                ShopData.state.holdToExitPromptShown = false
+                self.holdToExitStart = nil
+                self.holdToExitPromptShown = false
                 ShopUI.Prompts.UpdateBackPrompt()
             end
         end
     end
 
-    -- Update horse stats if a ped is available
-    -- if ShopData.state.pedForHorseStats and not ShopData.state.shuttingDown then
-    --     if DoesEntityExist(ShopData.state.pedForHorseStats) == 1 then
-    --         -- This is certainly one part of it, but not the whole thing, still todo
-    --         Citizen.InvokeNative(0x3FE4FB41EF7D2196, ShopData.state.pedForHorseStats)
-    --     else
-    --         ShopData.state.pedForHorseStats = nil
-    --     end
-    -- end
-
     -- Pop the event flags for this frame so we can react to them
     -- This prevents race conditions by flags getting cleared before we can react to them
-    ShopData.state.eventFlags = ShopEvents.PopEventFlags()
+    self.eventFlags = ShopEvents:PopEventFlags()
 
     -- Early return if we don't have anything to do to prevent unnecessary flag checks
-    if not ShopData.GetEventFlag(ShopEvents.FLAG_STATE_CHANGED) then
+    if not self:IsFlagSet(FLAG.STATE_CHANGED) then
         return
     end
 
     -- Happens when navigating to a new scene/menu
-    if ShopData.GetEventFlag(ShopEvents.FLAG_NEXT_SCENE) or ShopData.GetEventFlag(ShopEvents.FLAG_PREV_SCENE) then
+    if self:IsFlagSet(FLAG.NEXT_SCENE) or self:IsFlagSet(FLAG.PREV_SCENE) then
         ShopUI.ResetScene()
 
         local activeMenu = currentMenu or rootMenu
@@ -231,8 +199,8 @@ function ShopData.MaintainEvents()
         if result then
             ShopUI.EnterScene(scene)
 
-            if not ShopData.state.hasEnteredFirstScene then
-                ShopData.state.hasEnteredFirstScene = true
+            if not self.hasEnteredFirstScene then
+                self.hasEnteredFirstScene = true
             end
         else
             print("[NativeShop] Failed to build scene: " .. tostring(scene))
@@ -241,8 +209,8 @@ function ShopData.MaintainEvents()
     end
 
     -- Happens when navigating to a new page/tab within the current scene
-    if ShopData.GetEventFlag(ShopEvents.FLAG_NEXT_PAGE) or ShopData.GetEventFlag(ShopEvents.FLAG_FILTER_CHANGED) then
-        local collectionId = ShopEvents.state.collectionId
+    if self:IsFlagSet(FLAG.NEXT_PAGE) or self:IsFlagSet(FLAG.FILTER_CHANGED) then
+        local collectionId = ShopEvents.collectionId
         local index = DatabindingReadDataIntFromParent(ShopUI.bindings.dscMain, "PageFilterCurrentPageIndex")
         local result = ShopNavigator:navigateTabs(index + 1)
 
@@ -255,7 +223,7 @@ function ShopData.MaintainEvents()
                 print("[NativeShop] Collection does not exist: " .. tostring(collectionId))
             end
 
-            ShopData.state.entryFocusIndex = 1
+            self.entryFocusIndex = 1
             ShopUI.state.currentItemEntriesByIndex = {}
             ShopUI.state.currentItemIndecesById = {}
         else
@@ -264,12 +232,12 @@ function ShopData.MaintainEvents()
     end
 
     -- Happens when an item is selected/activated
-    if ShopData.GetEventFlag(ShopEvents.FLAG_ITEM_SELECTED) then
-        local action = ShopEvents.state.lastAction
-        local actionParameter = ShopEvents.state.lastActionParameter
-        local selectedIndex = ShopEvents.state.selectedIndex
+    if self:IsFlagSet(FLAG.ITEM_SELECTED) then
+        local action = ShopEvents.lastAction
+        local actionParameter = ShopEvents.lastActionParameter
+        local selectedIndex = ShopEvents.selectedIndex
 
-        if ShopData.GetEventFlag(ShopEvents.FLAG_EXIT) then
+        if self:IsFlagSet(FLAG.EXIT) then
             if
                 not currentMenu.Prompts or
                 not currentMenu.Prompts.Back or
@@ -281,7 +249,7 @@ function ShopData.MaintainEvents()
                 local result = ShopNavigator:navigateBack()
                 if type(result) == "number" then
                     ShopUI.PrevScene()
-                    ShopData.state.entryFocusIndex = result
+                    self.entryFocusIndex = result
                     ShopUI.Events.HandleItemSelect(selectedIndex, action, actionParameter)
                 else
                     ShopUI.Exit()
@@ -293,28 +261,28 @@ function ShopData.MaintainEvents()
     end
 
     -- Happens when an item is unfocused/unhighlighted
-    if ShopData.GetEventFlag(ShopEvents.FLAG_UNFOCUSED) then
+    if self:IsFlagSet(FLAG.UNFOCUSED) then
         ShopUI.Events.HandleItemUnfocus()
     end
 
     -- Happens when an item is focused/highlighted
-    if ShopData.GetEventFlag(ShopEvents.FLAG_FOCUSED) then
+    if self:IsFlagSet(FLAG.FOCUSED) then
         ShopUI.Events.HandleItemFocus()
     end
 
     -- Happens when the stepper value for an item has changed
-    if ShopData.GetEventFlag(ShopEvents.FLAG_STEPPER_DELTA_CHANGE) then
+    if self:IsFlagSet(FLAG.STEPPER_DELTA_CHANGE) then
         ShopUI.Events.HandleStepperDeltaChange()
     end
 
     -- Happens when the user clicks on a specific palette item
-    if ShopData.GetEventFlag(ShopEvents.FLAG_STEPPER_ABSOLUTE_CHANGE) then
+    if self:IsFlagSet(FLAG.STEPPER_ABSOLUTE_CHANGE) then
         ShopUI.Events.HandleStepperAbsoluteChange()
     end
 
     -- Happens when a new collection has been set, usually when navigating to a new tab/page
-    if ShopData.GetEventFlag(ShopEvents.FLAG_NEW_COLLECTION) then
-        local collectionId = ShopEvents.state.collectionId
+    if self:IsFlagSet(FLAG.NEW_COLLECTION) then
+        local collectionId = ShopEvents.collectionId
 
         if VirtualCollectionExists(collectionId) then
             local count = #ShopNavigator:getCurrentItems()
@@ -323,30 +291,80 @@ function ShopData.MaintainEvents()
             print("[NativeShop] Collection does not exist: " .. tostring(collectionId))
         end
 
-        local entry = ShopData.state.entryFocusIndex
+        local entry = self.entryFocusIndex
         ShopUI.SetIndex(entry - 1)
     end
 
     -- Happens when the UI requests more items to be added to the current collection
-    if ShopData.GetEventFlag(ShopEvents.FLAG_COLLECTION_REQUEST) then
+    if self:IsFlagSet(FLAG.COLLECTION_REQUEST) then
         ShopUI.CreateItemListBinding()
 
         local result = ShopUI.Builder.AddItemsToSceneWithinRange(
-            ShopEvents.state.collectionStartIndex,
-            ShopEvents.state.collectionRequestParameter
+            ShopEvents.collectionStartIndex,
+            ShopEvents.collectionRequestParameter
         )
 
         if type(result) == "number" and result <= 0 then
             print("[NativeShop] Failed to add items to collection:")
-            print("  Start Index: " .. tostring(ShopEvents.state.collectionStartIndex))
-            print("  Request Parameter: " .. tostring(ShopEvents.state.collectionRequestParameter))
+            print("  Start Index: " .. tostring(ShopEvents.collectionStartIndex))
+            print("  Request Parameter: " .. tostring(ShopEvents.collectionRequestParameter))
         end
     end
 
-    if ShopData.GetEventFlag(ShopEvents.FLAG_TOAST_INTERACTION) then
+    if self:IsFlagSet(FLAG.TOAST_INTERACTION) then
         ShopUI.Events.HandleToastInteraction(
-            ShopEvents.state.toastParameter1,
-            ShopEvents.state.toastParameter2
+            ShopEvents.toastParameter1,
+            ShopEvents.toastParameter2
         )
+    end
+end
+
+function ShopData:DisableControls()
+    local CONTROLS <const> = {
+        "INPUT_AIM",
+        "INPUT_ATTACK",
+        "INPUT_ATTACK2",
+        "INPUT_COVER",
+        "INPUT_ENTER",
+        "INPUT_FRONTEND_PAUSE",
+        "INPUT_FRONTEND_PAUSE_ALTERNATE",
+        "INPUT_HORSE_AIM",
+        "INPUT_HORSE_ATTACK",
+        "INPUT_HORSE_JUMP",
+        "INPUT_HORSE_SPRINT",
+        "INPUT_INTERACT_LOCKON",
+        "INPUT_JUMP",
+        "INPUT_LOOT",
+        "INPUT_MAP",
+        "INPUT_MELEE_ATTACK",
+        "INPUT_MELEE_GRAPPLE",
+        "INPUT_NEXT_CAMERA",
+        "INPUT_OPEN_JOURNAL",
+        "INPUT_OPEN_SATCHEL_MENU",
+        "INPUT_OPEN_WHEEL_MENU",
+        "INPUT_PHONE",
+        "INPUT_PICKUP",
+        "INPUT_PICKUP_CARRIABLE",
+        "INPUT_PICKUP_CARRIABLE2",
+        "INPUT_PLAYER_MENU",
+        "INPUT_QUICK_SHORTCUT_ABILITIES_MENU",
+        "INPUT_RADIAL_MENU_SLOT_NAV_NEXT",
+        "INPUT_RADIAL_MENU_SLOT_NAV_PREV",
+        "INPUT_REVEAL_HUD",
+        "INPUT_SELECT_ITEM_WHEEL",
+        "INPUT_SELECT_NEXT_WEAPON",
+        "INPUT_SELECT_PREV_WEAPON",
+        "INPUT_SELECT_RADAR_MODE",
+        "INPUT_SELECT_WEAPON_MELEE",
+        "INPUT_SPECIAL_ABILITY",
+        "INPUT_SPECIAL_ABILITY_ACTION",
+        "INPUT_SPECIAL_ABILITY_SECONDARY",
+        "INPUT_SECONDARY_SPECIAL_ABILITY_SECONDARY",
+        "INPUT_SPRINT",
+        "INPUT_TOGGLE_HOLSTER",
+    }
+
+    for _, control in ipairs(CONTROLS) do
+        DisableControlAction(0, control, true)
     end
 end

@@ -392,17 +392,18 @@ function ItemDatabase:GetSwatchTexture(index)
 
     -- Generate the swatch texture, depending on if this item is makeup or not
     if self:IsMakeup() then
-        local tint = VarString(10, "LITERAL_STRING", "Metaped_tint_Generic_clean");
-        local type = VarString(10, "LITERAL_STRING", "UIsw_flat_ck000");
+        local swatch = VarString(10, "LITERAL_STRING", "UISW_FLAT_CK000")
+        local palette = VarString(10, "LITERAL_STRING", "METAPED_TINT_GENERIC_CLEAN")
+        local tint = 0 -- TODO: Grab tints for makeup
 
         local struct = DataView.ArrayBuffer(128)
-        struct:SetInt64(2 * 8, BigInt(tint, true), true)
-        struct:SetInt64(1 * 8, BigInt(type, true), true)
-        struct:SetInt64(3 * 8, BigInt(item, true), true)
-        struct:SetInt64(4 * 8, BigInt(item, true), true)
-        struct:SetInt64(5 * 8, BigInt(item, true), true)
+        struct:SetInt64(1 * 8, swatch)
+        struct:SetInt64(2 * 8, palette)
+        struct:SetUint8(3 * 8, tint)
+        struct:SetUint8(4 * 8, tint)
+        struct:SetUint8(5 * 8, tint)
 
-        -- _GENERATE_SWATCH_TEXTURE_DIRECTLY
+        -- GENERATE_SWATCH_TEXTURE_DIRECTLY
         Citizen.InvokeNative(0x646ED1A1D28487DF, index, struct:Buffer())
     else
         local pedType = self:GetPedType()

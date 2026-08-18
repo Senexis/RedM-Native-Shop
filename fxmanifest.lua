@@ -15,21 +15,25 @@ file_set 'outfits' {
 }
 
 client_scripts {
-    -- Load modules in dependency order
+    -- Utilities
+    "client/utils/dataview.lua",
+    "client/utils/**/*.lua",
+
+    -- Enums and constants
+    "client/constants/**/*.lua",
+
+    -- Load configuration
     "client/config.lua",
-    "client/util_dataview.lua",
-    "client/util_outfits.lua",
-    "client/util_clothing.lua",
-    "client/util_items.lua",
-    "client/util_ticker.lua",
-    "client/util_toasts.lua",
-    "client/shop_validator.lua",
-    "client/shop_events.lua",
-    "client/shop_navigator.lua",
-    "client/shop_ui.lua",
-    "client/shop_data.lua",
-    "client/res_events.lua",
-    "client/res_exports.lua",
+
+    -- Load modules in dependency order
+    "client/shop/validator.lua",
+    "client/shop/events.lua",
+    "client/shop/navigator.lua",
+    "client/shop/ui.lua",
+    "client/shop/data.lua",
+
+    -- External-facing
+    "client/external/**/*.lua",
 
     -- External API, this is what you import
     "client/api.lua",

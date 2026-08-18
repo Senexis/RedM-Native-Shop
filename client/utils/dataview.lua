@@ -1,6 +1,45 @@
 -- DataView implementation for binary data manipulation
 -- Based on work by gottfriedleibniz: https://github.com/gottfriedleibniz
 
+---@class DataView
+---@field blob string
+---@field length number
+---@field offset number
+---@field cangrow boolean
+---@field GetInt8 fun(self, offset: number, endian: boolean|nil): number
+---@field SetInt8 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetUint8 fun(self, offset: number, endian: boolean|nil): number
+---@field SetUint8 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetInt16 fun(self, offset: number, endian: boolean|nil): number
+---@field SetInt16 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetUint16 fun(self, offset: number, endian: boolean|nil): number
+---@field SetUint16 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetInt32 fun(self, offset: number, endian: boolean|nil): number
+---@field SetInt32 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetUint32 fun(self, offset: number, endian: boolean|nil): number
+---@field SetUint32 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetInt64 fun(self, offset: number, endian: boolean|nil): number
+---@field SetInt64 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetUint64 fun(self, offset: number, endian: boolean|nil): number
+---@field SetUint64 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetFloat32 fun(self, offset: number, endian: boolean|nil): number
+---@field SetFloat32 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetFloat64 fun(self, offset: number, endian: boolean|nil): number
+---@field SetFloat64 fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetLuaInt fun(self, offset: number, endian: boolean|nil): number
+---@field SetLuaInt fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetUluaInt fun(self, offset: number, endian: boolean|nil): number
+---@field SetUluaInt fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetLuaNum fun(self, offset: number, endian: boolean|nil): number
+---@field SetLuaNum fun(self, offset: number, value: number, endian: boolean|nil): DataView
+---@field GetString fun(self, offset: number, endian: boolean|nil): string
+---@field SetString fun(self, offset: number, value: string, endian: boolean|nil): DataView
+---@field GetFixedString fun(self, offset: number, typelen: number, endian: boolean|nil): string
+---@field SetFixedString fun(self, offset: number, typelen: number, value: string, endian: boolean|nil): DataView
+---@field GetFixedInt fun(self, offset: number, typelen: number, endian: boolean|nil): number
+---@field SetFixedInt fun(self, offset: number, typelen: number, value: number, endian: boolean|nil): DataView
+---@field GetFixedUint fun(self, offset: number, typelen: number, endian: boolean|nil): number
+---@field SetFixedUint fun(self, offset: number, typelen: number, value: number, endian: boolean|nil): DataView
 DataView = setmetatable({
     EndBig = ">",
     EndLittle = "<",
@@ -36,9 +75,10 @@ DataView.__index = DataView
 
 ---Create an ArrayBuffer with a size in bytes
 ---@param length number Size in bytes
----@return table buffer DataView buffer instance
+---@return DataView buffer DataView buffer instance
 function DataView.ArrayBuffer(length)
     return setmetatable({
+        ---@diagnostic disable-next-line: undefined-field
         blob = string.blob(length),
         length = length,
         offset = 1,
@@ -48,7 +88,7 @@ end
 
 ---Wrap a non-internalized string
 ---@param blob string Binary data blob
----@return table buffer DataView buffer instance
+---@return DataView buffer DataView buffer instance
 function DataView.Wrap(blob)
     return setmetatable({
         blob = blob,
@@ -79,7 +119,7 @@ end
 ---Create a subview of the current buffer
 ---@param offset number Offset for the subview
 ---@param length number|nil Length of the subview (defaults to remaining length)
----@return table subview DataView subview instance
+---@return DataView subview DataView subview instance
 function DataView:SubView(offset, length)
     return setmetatable({
         blob = self.blob,
@@ -97,7 +137,7 @@ local function ef(big)
 end
 
 ---Helper function for setting fixed datatypes within a buffer
----@param self table DataView instance
+---@param self DataView DataView instance
 ---@param offset number Byte offset
 ---@param value any Value to pack
 ---@param code string Pack format code
@@ -106,7 +146,14 @@ local function packblob(self, offset, value, code)
     -- If cangrow is false the dataview represents a subview, i.e., a subset
     -- of some other string view. Ensure the references are the same before
     -- updating the subview
-    local packed = self.blob:blob_pack(offset, code, value)
+    ---@diagnostic disable-next-line: undefined-field
+    local ok, packed = pcall(self.blob.blob_pack, self.blob, offset, code, value)
+    if not ok then
+        local msg = "Failed to pack value: %s at offset: %s with code: %s"
+        error(msg:format(tostring(value), tostring(offset), tostring(code)), 3)
+        return false
+    end
+
     if self.cangrow or packed == self.blob then
         self.blob = packed
         self.length = packed:len()
@@ -130,6 +177,7 @@ for label, datatype in pairs(DataView.Types) do
         offset = offset or 0
         if offset >= 0 then
             local o = self.offset + offset
+            ---@diagnostic disable-next-line: undefined-field
             local value, _ = self.blob:blob_unpack(o, ef(endian) .. datatype.code)
             return value
         end
@@ -160,6 +208,7 @@ for label, datatype in pairs(DataView.FixedTypes) do
             local o = self.offset + offset
             if (o + (typelen - 1)) <= self.length then
                 local code = ef(endian) .. "c" .. tostring(typelen)
+                ---@diagnostic disable-next-line: undefined-field
                 local value, _ = self.blob:blob_unpack(o, code)
                 return value
             end
@@ -181,13 +230,4 @@ for label, datatype in pairs(DataView.FixedTypes) do
         end
         return self
     end
-end
-
----Converts a string to a bigint for native function compatibility
----@param text string|number The text string to convert
----@return number bigint The converted bigint value
-function BigInt(text, endian)
-    local stringBuffer = DataView.ArrayBuffer(16)
-    stringBuffer:SetInt64(0, text, endian)
-    return stringBuffer:GetInt64(0)
 end

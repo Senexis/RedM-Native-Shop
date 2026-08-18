@@ -226,7 +226,7 @@ function ShopNavigator:_rebuildCurrentItems()
             local filterArg = (activeTab and not activeTab.All) and activeTab.Id or nil
 
             local resourceName = self.resourceNames[rootId]
-            local result = ShopData.SafeInvoke(resourceName, getter, filterArg)
+            local result = ShopData:SafeInvoke(resourceName, getter, filterArg)
             if not result then
                 self.onError("ItemSource '" .. menu.ItemSource .. "' failed")
                 return
@@ -312,7 +312,7 @@ function ShopNavigator:_setMenuState(menuId, rootId, data)
             if type(linkData) == "string" and string.sub(linkData, 1, 3) == "cb_" then
                 local value = ShopUI.GetItemValue(data)
                 local resourceName = self.resourceNames[rootId]
-                local result = ShopData.SafeInvoke(resourceName, linkData, data, value)
+                local result = ShopData:SafeInvoke(resourceName, linkData, data, value)
                 linkData = result or nil
             end
 
@@ -329,7 +329,7 @@ function ShopNavigator:_setMenuState(menuId, rootId, data)
         local contextToUse = linkData or self.generatorData[rootId]
 
         local resourceName = self.resourceNames[rootId]
-        local result = ShopData.SafeInvoke(resourceName, self.generators[rootId], contextToUse)
+        local result = ShopData:SafeInvoke(resourceName, self.generators[rootId], contextToUse)
         if not result then
             self.onError("Generator for root '" .. rootId .. "' returned nil: " .. tostring(result))
             return 1
@@ -558,7 +558,7 @@ function ShopNavigator:refreshRoot(rootId)
     local context = self.generatorData[rootId]
 
     local resourceName = self.resourceNames[rootId]
-    local result = ShopData.SafeInvoke(resourceName, self.generators[rootId], context)
+    local result = ShopData:SafeInvoke(resourceName, self.generators[rootId], context)
     if not result then
         self.onError("Generator for root '" .. rootId .. "' failed during refresh: " .. tostring(result))
         return
@@ -1025,7 +1025,6 @@ function ShopNavigator:getCurrentTitleEntry()
     if not menu then return nil end
 
     local text = menu.Title or root.Title
-    local dynamic = type(text) == "function" or menu.TitleDynamic or root.TitleDynamic
     local baseId = menu.Id
     local entryType = "MENU_TITLE"
 
@@ -1041,7 +1040,7 @@ function ShopNavigator:getCurrentTitleEntry()
 
     if type(text) == "string" and string.sub(text, 1, 3) == "cb_" then
         local resourceName = self.resourceNames[self.currentRootId]
-        text = ShopData.SafeInvoke(resourceName, text)
+        text = ShopData:SafeInvoke(resourceName, text)
         baseId = string.format("%s_%s", baseId, GetGameTimer())
     elseif type(text) == "string" then
         text = text
@@ -1054,7 +1053,6 @@ function ShopNavigator:getCurrentTitleEntry()
         Id = self:_getUniqueId(baseId),
         Text = text,
         Type = entryType,
-        Dynamic = dynamic
     }
 end
 
@@ -1069,7 +1067,6 @@ function ShopNavigator:getCurrentSubtitleEntry()
 
     -- Priority: Tab Subtitle -> Tab Label -> Menu Subtitle -> Menu Label -> Root Subtitle -> Root Label
     local text = menu.Subtitle or menu.Label or root.Subtitle or root.Label
-    local dynamic = type(text) == "function" or menu.SubtitleDynamic or root.SubtitleDynamic
     local baseId = menu.Id
     local entryType = "MENU_SUBTITLE"
 
@@ -1085,7 +1082,7 @@ function ShopNavigator:getCurrentSubtitleEntry()
 
     if type(text) == "string" and string.sub(text, 1, 3) == "cb_" then
         local resourceName = self.resourceNames[self.currentRootId]
-        text = ShopData.SafeInvoke(resourceName, text)
+        text = ShopData:SafeInvoke(resourceName, text)
         baseId = string.format("%s_%s", baseId, GetGameTimer())
     elseif type(text) == "string" then
         text = text
@@ -1098,6 +1095,5 @@ function ShopNavigator:getCurrentSubtitleEntry()
         Id = self:_getUniqueId(baseId),
         Text = text,
         Type = entryType,
-        Dynamic = dynamic
     }
 end

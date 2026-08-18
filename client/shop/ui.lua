@@ -168,7 +168,7 @@ function ShopUI.Initialize()
     ShopUI.bindings.dscSceneBusiness = sceneBusiness
 end
 
-function ShopUI.CreateTextEntry(type, id, text, alwaysCreate)
+function ShopUI.CreateTextEntry(type, id, text)
     local key = string.format(
         "%s_%s_%s",
         ShopNavigator:getRootMenuId() or "NSUI",
@@ -176,9 +176,7 @@ function ShopUI.CreateTextEntry(type, id, text, alwaysCreate)
         tostring(id):upper()
     )
 
-    if DoesTextLabelExist(key) ~= 1 or alwaysCreate then
-        AddTextEntry(key, text)
-    end
+    AddTextEntry(key, text)
 
     return key
 end
@@ -254,7 +252,7 @@ function ShopUI.UpdateTitle()
     local hash = ""
 
     if entry and entry.Text then
-        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text, entry.Dynamic)
+        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text)
     end
 
     if DatabindingIsEntryValid(ShopUI.bindings.dshTitle) == 1 then
@@ -269,7 +267,7 @@ function ShopUI.UpdateSubheader()
     local hash = ""
 
     if entry and entry.Text then
-        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text, entry.Dynamic)
+        hash = ShopUI.CreateTextEntry(entry.Type, entry.Id, entry.Text)
     end
 
     if DatabindingIsEntryValid(ShopUI.bindings.dshSubheader) == 1 then
@@ -343,7 +341,7 @@ function ShopUI.ResetScene()
 end
 
 function ShopUI.SetIndex(index)
-    local collectionId = ShopEvents.state.collectionId
+    local collectionId = ShopEvents.collectionId
 
     if VirtualCollectionExists(collectionId) then
         VirtualCollectionSetInterestIndex(collectionId, index)
@@ -376,9 +374,9 @@ function ShopUI.Open(id, fromToast)
         id = ShopNavigator:getMenuIdByHash(id)
     end
 
-    ShopData.state.shuttingDown = false
+    ShopData.shuttingDown = false
 
-    if ShopData.state.hiddenMenu == id then
+    if ShopData.hiddenMenu == id then
         local result = ShopNavigator:restore()
         if not result then
             print("[NativeShop] Failed to restore menu: " .. tostring(id))
@@ -396,7 +394,7 @@ function ShopUI.Open(id, fromToast)
         TriggerEvent("native_shop:opening", id)
     end
 
-    ShopData.state.hiddenMenu = nil
+    ShopData.hiddenMenu = nil
     ShopUI.OnOpen()
 end
 
@@ -438,16 +436,16 @@ function ShopUI.OnOpen()
 end
 
 function ShopUI.Hide()
-    ShopData.state.hiddenMenu = ShopNavigator:getInitialRootId()
-    ShopData.state.entryFocusIndex = ShopEvents.state.focusedIndex + 1
+    ShopData.hiddenMenu = ShopNavigator:getInitialRootId()
+    ShopData.entryFocusIndex = ShopEvents.focusedIndex + 1
 
     TriggerEvent("native_shop:hiding", ShopNavigator:getCurrentMenuId())
     ShopUI.OnShutdown()
 end
 
 function ShopUI.Exit()
-    ShopData.state.hiddenMenu = nil
-    ShopData.state.entryFocusIndex = 1
+    ShopData.hiddenMenu = nil
+    ShopData.entryFocusIndex = 1
 
     if ShopNavigator:getCurrentMenuId() then
         TriggerEvent("native_shop:closing", ShopNavigator:getCurrentMenuId())
@@ -461,7 +459,7 @@ function ShopUI.OnShutdown()
     if not rootMenu then return end
 
     -- Stop running maintain tasks
-    ShopData.state.shuttingDown = true
+    ShopData.shuttingDown = true
 
     -- Reset control context if walking is allowed
     if rootMenu.AllowWalking then
@@ -485,7 +483,7 @@ function ShopUI.OnShutdown()
     end
 
     -- Get rid of menu state only if we are not hiding the menu
-    if not ShopData.state.hiddenMenu then
+    if not ShopData.hiddenMenu then
         ShopNavigator:close()
     end
 
@@ -493,8 +491,8 @@ function ShopUI.OnShutdown()
     CloseUiapp("shop_menu")
 
     -- Refresh the menu on the next open
-    ShopData.state.rootMenuId = nil
-    ShopData.state.currentMenuId = nil
+    ShopData.rootMenuId = nil
+    ShopData.currentMenuId = nil
 
     -- Clear the swatch texture dictionary
     DestroySwatchTextureDict()
@@ -544,13 +542,13 @@ function ShopUI.RefreshMenu(id)
 
     -- Refocuses the current item to update the scene UI
     ShopUI.state.suppressUnfocusEvent = true
-    ShopEvents.SetEventFlag(ShopEvents.FLAG_UNFOCUSED)
+    ShopEvents:SetFlag(FLAG.UNFOCUSED)
 
     ShopUI.state.suppressFocusEvent = true
-    ShopEvents.SetEventFlag(ShopEvents.FLAG_FOCUSED)
+    ShopEvents:SetFlag(FLAG.FOCUSED)
 
     -- Trigger a state changed event so we can update the scene UI
-    ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
+    ShopEvents:SetFlag(FLAG.STATE_CHANGED)
 end
 
 function ShopUI.RefreshRoot(root)
@@ -596,11 +594,11 @@ function ShopUI.RefreshItem(idOrIndex)
     if not item then return end
 
     local itemType = item.Type or "TEXT"
-    local entryType = ShopEvents.GetItemType(entry)
+    local entryType = ShopEvents:GetItemType(entry)
     if itemType ~= entryType then
-        local collectionId = ShopEvents.state.collectionId
+        local collectionId = ShopEvents.collectionId
         if VirtualCollectionExists(collectionId) then
-            ShopData.state.entryFocusIndex = index
+            ShopData.entryFocusIndex = index
             VirtualCollectionReset(collectionId)
         else
             print("[NativeShop] Collection does not exist: " .. tostring(collectionId))
@@ -710,26 +708,26 @@ function ShopUI.Events.HandleToastInteraction(parameter1, parameter2)
 end
 
 function ShopUI.Events.HandleItemSelect(index, event, eventParameter)
-    local EVENT_MAP <const> = {
-        GENERIC_SHOP_UI_SELECT           = { key = "select", prompt = "Select" },
-        GENERIC_SHOP_UI_SECONDARY_SELECT = { key = "select", prompt = "Select" },
-        GENERIC_SHOP_UI_EXIT             = { key = "back", prompt = "Back" },
-        GENERIC_SHOP_UI_SELECT_OPTION    = { key = "option", prompt = "Option" },
-        GENERIC_SHOP_UI_SELECT_TOGGLE    = { key = "toggle", prompt = "Toggle" },
-        GENERIC_SHOP_UI_SELECT_INFO      = { key = "info", prompt = "Info" },
-        GENERIC_SHOP_UI_SELECT_MODIFY    = { key = "modify", prompt = "Modify" },
-        DATA_ADJUSTABLE_CHANGED          = { key = "adjust", prompt = "Adjust" },
+    local PROMPT_MAP <const> = {
+        [PROMPT.SELECT] = { key = "select", prompt = "Select" },
+        [PROMPT.OPTION] = { key = "option", prompt = "Option" },
+        [PROMPT.TOGGLE] = { key = "toggle", prompt = "Toggle" },
+        [PROMPT.INFO]   = { key = "info", prompt = "Info" },
+        [PROMPT.ADJUST] = { key = "adjust", prompt = "Adjust" },
+        [PROMPT.MODIFY] = { key = "modify", prompt = "Modify" },
+        [PROMPT.BACK]   = { key = "back", prompt = "Back" },
     }
 
-    local config = EVENT_MAP[event]
+    local prompt = UI_EVENT_PARAM:GetPrompt(event)
+    local config = PROMPT_MAP[prompt]
     if not config then return end
 
     local itemIndex = index + 1
     local item = ShopNavigator:getItemByIndex(itemIndex)
     if not item then return end
 
-    local itemType = ShopEvents.GetSelectedItemType()
-    local itemTarget = ShopEvents.GetSelectedTargetMenu()
+    local itemType = ShopEvents:GetSelectedItemType()
+    local itemTarget = ShopEvents:GetSelectedTargetMenu()
     local actionKey = config.key
     local isSubMenuNav = (actionKey == "select" and itemTarget > 0)
 
@@ -764,7 +762,7 @@ function ShopUI.Events.HandleItemSelect(index, event, eventParameter)
     local function applyNavigation(targetIndex)
         if type(targetIndex) == "number" and targetIndex > 0 then
             ShopUI.NextScene()
-            ShopData.state.entryFocusIndex = targetIndex
+            ShopData.entryFocusIndex = targetIndex
         end
     end
 
@@ -803,7 +801,7 @@ function ShopUI.Events.HandleItemSelect(index, event, eventParameter)
     elseif type(action) == "string" then
         local value = ShopUI.GetItemValue(item) or eventParameter
         local resourceName = ShopNavigator:getCurrentResourceName()
-        actionResult = ShopData.SafeInvoke(resourceName, action, item, value, actionKey)
+        actionResult = ShopData:SafeInvoke(resourceName, action, item, value, actionKey)
     else
         print("[NativeShop] Item '" .. tostring(item.Id) .. "' has an invalid Action type.")
         return
@@ -813,8 +811,8 @@ function ShopUI.Events.HandleItemSelect(index, event, eventParameter)
 end
 
 function ShopUI.Events.HandleItemFocus()
-    local type = ShopEvents.GetFocusedItemType()
-    local index = ShopEvents.state.focusedIndex + 1
+    local type = ShopEvents:GetFocusedItemType()
+    local index = ShopEvents.focusedIndex + 1
     local item = ShopNavigator:getItemByIndex(index)
     if not item then return end
 
@@ -846,34 +844,35 @@ function ShopUI.Events.HandleItemSceneFocus(item)
     local currentMenu = ShopNavigator:getCurrentMenu()
     if not rootMenu or not currentMenu then return false end
 
-    local scene = currentMenu.Scene or rootMenu.Scene or "MENU_LIST"
+    local sceneName = currentMenu.Scene or rootMenu.Scene or "MENU_LIST"
+    local scene = SCENE:GetIdFromName(sceneName)
     if not scene then return false end
 
     local CALLBACKS <const> = {
-        BOUNTY_MANAGEMENT = ShopUI.Events.HandleBountyManagementFocus,
-        CLOTHING_MODIFY = ShopUI.Events.HandleClothingModifyFocus,
-        CLOTHING_STAT_INFO_BOX = ShopUI.Events.HandleClothingItemInfoBoxFocus,
-        HORSE_MANAGEMENT = ShopUI.Events.HandleHorseManagementFocus,
-        HORSE_STAT_INFO_BOX = ShopUI.Events.HandleHorseStatInfoBoxFocus,
-        ITEM_GRID = ShopUI.Events.HandleItemGridFocus,
-        ITEM_LIST = ShopUI.Events.HandleItemListFocus,
-        ITEM_LIST_COLOUR_PALETTE = ShopUI.Events.HandleItemListColourPaletteFocus,
-        ITEM_LIST_DESCRIPTION = ShopUI.Events.HandleItemListDescriptionFocus,
-        ITEM_LIST_HORSE_STATS = ShopUI.Events.HandleItemListHorseStatsFocus,
-        ITEM_LIST_RECIPES = ShopUI.Events.HandleItemListRecipesFocus,
-        ITEM_LIST_RPG_STATS = ShopUI.Events.HandleItemListRpgStatsFocus,
-        ITEM_LIST_SLIDER = ShopUI.Events.HandleItemListSliderFocus,
-        ITEM_LIST_TEXTURE_DESCRIPTION = ShopUI.Events.HandleItemListTextureDescriptionFocus,
-        ITEM_LIST_VEHICLE_STATS = ShopUI.Events.HandleItemListVehicleStatsFocus,
-        ITEM_LIST_WEAPON_STATS = ShopUI.Events.HandleItemListWeaponStatsFocus,
-        ITEM_SELL_LIST_HORSE_STATS = ShopUI.Events.HandleItemSellListHorseStatsFocus,
-        MENU_LIST = ShopUI.Events.HandleMenuListFocus,
-        MENU_LIST_HORSE_STATS = ShopUI.Events.HandleMenuListHorseStatsFocus,
-        MENU_LIST_WEAPON_STATS = ShopUI.Events.HandleMenuListWeaponStatsFocus,
-        MENU_STYLE_SELECTOR = ShopUI.Events.HandleMenuStyleSelectorFocus,
-        SADDLE_MANAGEMENT = ShopUI.Events.HandleSaddleManagementFocus,
-        VEHICLE_MANAGEMENT = ShopUI.Events.HandleVehicleManagementFocus,
-        WEAPON_MANAGEMENT = ShopUI.Events.HandleWeaponManagementFocus,
+        [SCENE.BOUNTY_MANAGEMENT]             = ShopUI.Events.HandleBountyManagementFocus,
+        [SCENE.CLOTHING_MODIFY]               = ShopUI.Events.HandleClothingModifyFocus,
+        [SCENE.CLOTHING_STAT_INFO_BOX]        = ShopUI.Events.HandleClothingItemInfoBoxFocus,
+        [SCENE.HORSE_MANAGEMENT]              = ShopUI.Events.HandleHorseManagementFocus,
+        [SCENE.HORSE_STAT_INFO_BOX]           = ShopUI.Events.HandleHorseStatInfoBoxFocus,
+        [SCENE.ITEM_GRID]                     = ShopUI.Events.HandleItemGridFocus,
+        [SCENE.ITEM_LIST]                     = ShopUI.Events.HandleItemListFocus,
+        [SCENE.ITEM_LIST_COLOUR_PALETTE]      = ShopUI.Events.HandleItemListColourPaletteFocus,
+        [SCENE.ITEM_LIST_DESCRIPTION]         = ShopUI.Events.HandleItemListDescriptionFocus,
+        [SCENE.ITEM_LIST_HORSE_STATS]         = ShopUI.Events.HandleItemListHorseStatsFocus,
+        [SCENE.ITEM_LIST_RECIPES]             = ShopUI.Events.HandleItemListRecipesFocus,
+        [SCENE.ITEM_LIST_RPG_STATS]           = ShopUI.Events.HandleItemListRpgStatsFocus,
+        [SCENE.ITEM_LIST_SLIDER]              = ShopUI.Events.HandleItemListSliderFocus,
+        [SCENE.ITEM_LIST_TEXTURE_DESCRIPTION] = ShopUI.Events.HandleItemListTextureDescriptionFocus,
+        [SCENE.ITEM_LIST_VEHICLE_STATS]       = ShopUI.Events.HandleItemListVehicleStatsFocus,
+        [SCENE.ITEM_LIST_WEAPON_STATS]        = ShopUI.Events.HandleItemListWeaponStatsFocus,
+        [SCENE.ITEM_SELL_LIST_HORSE_STATS]    = ShopUI.Events.HandleItemSellListHorseStatsFocus,
+        [SCENE.MENU_LIST]                     = ShopUI.Events.HandleMenuListFocus,
+        [SCENE.MENU_LIST_HORSE_STATS]         = ShopUI.Events.HandleMenuListHorseStatsFocus,
+        [SCENE.MENU_LIST_WEAPON_STATS]        = ShopUI.Events.HandleMenuListWeaponStatsFocus,
+        [SCENE.MENU_STYLE_SELECTOR]           = ShopUI.Events.HandleMenuStyleSelectorFocus,
+        [SCENE.SADDLE_MANAGEMENT]             = ShopUI.Events.HandleSaddleManagementFocus,
+        [SCENE.VEHICLE_MANAGEMENT]            = ShopUI.Events.HandleVehicleManagementFocus,
+        [SCENE.WEAPON_MANAGEMENT]             = ShopUI.Events.HandleWeaponManagementFocus,
     }
 
     local callback = CALLBACKS[scene]
@@ -1290,8 +1289,8 @@ function ShopUI.Events.HandleWeaponManagementFocus(item)
 end
 
 function ShopUI.Events.HandleItemUnfocus()
-    local type = ShopEvents.GetUnfocusedItemType()
-    local index = ShopEvents.state.unfocusedIndex + 1
+    local type = ShopEvents:GetUnfocusedItemType()
+    local index = ShopEvents.unfocusedIndex + 1
     local item = ShopNavigator:getItemByIndex(index)
     if not item then return true end
 
@@ -1311,10 +1310,10 @@ function ShopUI.Events.HandleItemUnfocus()
 end
 
 function ShopUI.Events.HandleStepperDeltaChange()
-    local datastore = ShopEvents.state.focusedDatastore
+    local datastore = ShopEvents.focusedDatastore
     if not datastore then return true end
 
-    local change = ShopEvents.state.adjustableIndex
+    local change = ShopEvents.adjustableIndex
     if not change or change == 0 then return true end
 
     local index, max = nil, nil
@@ -1363,8 +1362,8 @@ function ShopUI.Events.HandleStepperDeltaChange()
     end
 
     if not index or not max then
-        local focusedIndex = ShopEvents.state.focusedIndex
-        ShopUI.Events.HandleItemSelect(focusedIndex, "DATA_ADJUSTABLE_CHANGED", change)
+        local focusedIndex = ShopEvents.focusedIndex
+        ShopUI.Events.HandleItemSelect(focusedIndex, UI_EVENT_PARAM.STEPPER, change)
         return true
     end
 
@@ -1373,7 +1372,7 @@ function ShopUI.Events.HandleStepperDeltaChange()
 end
 
 function ShopUI.Events.HandleStepperAbsoluteChange()
-    local index = ShopEvents.state.adjustableIndex
+    local index = ShopEvents.adjustableIndex
     if not index then return true end
 
     -- Update the UI with the new index and value
@@ -1381,10 +1380,10 @@ function ShopUI.Events.HandleStepperAbsoluteChange()
 end
 
 function ShopUI.Events.HandleStepperChange(value)
-    local datastore = ShopEvents.state.focusedDatastore
+    local datastore = ShopEvents.focusedDatastore
     if not datastore then return true end
 
-    local focusedIndex = ShopEvents.state.focusedIndex + 1
+    local focusedIndex = ShopEvents.focusedIndex + 1
     local item = ShopNavigator:getItemByIndex(focusedIndex)
     if not item then return true end
 
@@ -1436,7 +1435,7 @@ function ShopUI.Events.HandleStepperChange(value)
         DatabindingWriteDataIntFromParent(main, "currentPaletteIndex", value)
         DatabindingWriteDataBoolFromParent(scene, "SliderLeftArrowEnabled", value > 1)
         DatabindingWriteDataBoolFromParent(scene, "SliderRightArrowEnabled", value < max)
-        DatabindingAddDataHash(main, "ItemPaletteItemName", string.format("NSUI_%s_%s", id, value + 1))
+        DatabindingAddDataHash(main, "ItemPaletteItemName", string.format("NSUI_PALETTE_%s_%s", id, value + 1))
 
         -- Refresh the item in case it depends on the value
         ShopUI.RefreshItem(id)
@@ -1472,47 +1471,45 @@ function ShopUI.Events.HandleStepperChange(value)
         })
     end
 
-    ShopUI.Events.HandleItemSelect(ShopEvents.state.focusedIndex, "DATA_ADJUSTABLE_CHANGED", value)
+    ShopUI.Events.HandleItemSelect(ShopEvents.focusedIndex, UI_EVENT_PARAM.STEPPER, value)
 
     return true
 end
 
 function ShopUI.Builder.BuildScene(scene, menu)
-    if not ShopUI.IsSceneTypeValid(scene) then
-        print("[NativeShop] Error: Invalid scene type build requested: ", scene)
-        return false
-    end
-
     if not menu then
         print("[NativeShop] Error: No menu provided for scene build: ", scene)
         return false
     end
 
+    scene = SCENE:GetIdFromName(scene)
+    if not scene then return false end
+
     local CALLBACKS <const> = {
-        BOUNTY_MANAGEMENT = ShopUI.Builder.BuildBountyManagementScene,
-        CLOTHING_MODIFY = ShopUI.Builder.BuildClothingModifyScene,
-        CLOTHING_STAT_INFO_BOX = ShopUI.Builder.BuildClothingItemInfoBoxScene,
-        HORSE_MANAGEMENT = ShopUI.Builder.BuildHorseManagementScene,
-        HORSE_STAT_INFO_BOX = ShopUI.Builder.BuildHorseStatInfoBoxScene,
-        ITEM_GRID = ShopUI.Builder.BuildItemGridScene,
-        ITEM_LIST = ShopUI.Builder.BuildItemListScene,
-        ITEM_LIST_COLOUR_PALETTE = ShopUI.Builder.BuildItemListColourPaletteScene,
-        ITEM_LIST_DESCRIPTION = ShopUI.Builder.BuildItemListDescriptionScene,
-        ITEM_LIST_HORSE_STATS = ShopUI.Builder.BuildItemListHorseStatsScene,
-        ITEM_LIST_RECIPES = ShopUI.Builder.BuildItemListRecipesScene,
-        ITEM_LIST_RPG_STATS = ShopUI.Builder.BuildItemListRpgStatsScene,
-        ITEM_LIST_SLIDER = ShopUI.Builder.BuildItemListSliderScene,
-        ITEM_LIST_TEXTURE_DESCRIPTION = ShopUI.Builder.BuildItemListTextureDescriptionScene,
-        ITEM_LIST_VEHICLE_STATS = ShopUI.Builder.BuildItemListVehicleStatsScene,
-        ITEM_LIST_WEAPON_STATS = ShopUI.Builder.BuildItemListWeaponStatsScene,
-        ITEM_SELL_LIST_HORSE_STATS = ShopUI.Builder.BuildItemSellListHorseStatsScene,
-        MENU_LIST = ShopUI.Builder.BuildMenuListScene,
-        MENU_LIST_HORSE_STATS = ShopUI.Builder.BuildMenuListHorseStatsScene,
-        MENU_LIST_WEAPON_STATS = ShopUI.Builder.BuildMenuListWeaponStatsScene,
-        MENU_STYLE_SELECTOR = ShopUI.Builder.BuildMenuStyleSelectorScene,
-        SADDLE_MANAGEMENT = ShopUI.Builder.BuildSaddleManagementScene,
-        VEHICLE_MANAGEMENT = ShopUI.Builder.BuildVehicleManagementScene,
-        WEAPON_MANAGEMENT = ShopUI.Builder.BuildWeaponManagementScene,
+        [SCENE.BOUNTY_MANAGEMENT]             = ShopUI.Builder.BuildBountyManagementScene,
+        [SCENE.CLOTHING_MODIFY]               = ShopUI.Builder.BuildClothingModifyScene,
+        [SCENE.CLOTHING_STAT_INFO_BOX]        = ShopUI.Builder.BuildClothingItemInfoBoxScene,
+        [SCENE.HORSE_MANAGEMENT]              = ShopUI.Builder.BuildHorseManagementScene,
+        [SCENE.HORSE_STAT_INFO_BOX]           = ShopUI.Builder.BuildHorseStatInfoBoxScene,
+        [SCENE.ITEM_GRID]                     = ShopUI.Builder.BuildItemGridScene,
+        [SCENE.ITEM_LIST]                     = ShopUI.Builder.BuildItemListScene,
+        [SCENE.ITEM_LIST_COLOUR_PALETTE]      = ShopUI.Builder.BuildItemListColourPaletteScene,
+        [SCENE.ITEM_LIST_DESCRIPTION]         = ShopUI.Builder.BuildItemListDescriptionScene,
+        [SCENE.ITEM_LIST_HORSE_STATS]         = ShopUI.Builder.BuildItemListHorseStatsScene,
+        [SCENE.ITEM_LIST_RECIPES]             = ShopUI.Builder.BuildItemListRecipesScene,
+        [SCENE.ITEM_LIST_RPG_STATS]           = ShopUI.Builder.BuildItemListRpgStatsScene,
+        [SCENE.ITEM_LIST_SLIDER]              = ShopUI.Builder.BuildItemListSliderScene,
+        [SCENE.ITEM_LIST_TEXTURE_DESCRIPTION] = ShopUI.Builder.BuildItemListTextureDescriptionScene,
+        [SCENE.ITEM_LIST_VEHICLE_STATS]       = ShopUI.Builder.BuildItemListVehicleStatsScene,
+        [SCENE.ITEM_LIST_WEAPON_STATS]        = ShopUI.Builder.BuildItemListWeaponStatsScene,
+        [SCENE.ITEM_SELL_LIST_HORSE_STATS]    = ShopUI.Builder.BuildItemSellListHorseStatsScene,
+        [SCENE.MENU_LIST]                     = ShopUI.Builder.BuildMenuListScene,
+        [SCENE.MENU_LIST_HORSE_STATS]         = ShopUI.Builder.BuildMenuListHorseStatsScene,
+        [SCENE.MENU_LIST_WEAPON_STATS]        = ShopUI.Builder.BuildMenuListWeaponStatsScene,
+        [SCENE.MENU_STYLE_SELECTOR]           = ShopUI.Builder.BuildMenuStyleSelectorScene,
+        [SCENE.SADDLE_MANAGEMENT]             = ShopUI.Builder.BuildSaddleManagementScene,
+        [SCENE.VEHICLE_MANAGEMENT]            = ShopUI.Builder.BuildVehicleManagementScene,
+        [SCENE.WEAPON_MANAGEMENT]             = ShopUI.Builder.BuildWeaponManagementScene,
     }
 
     ShopUI.Prompts.ClearAllPrompts()
@@ -1544,8 +1541,8 @@ end
 function ShopUI.Builder.BuildClothingItemInfoBoxScene(menu)
     ShopUI.Events.HandleClothingItemInfoBoxFocus(menu)
 
-    ShopEvents.SetEventFlag(ShopEvents.FLAG_FOCUSED)
-    ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
+    ShopEvents:SetFlag(FLAG.FOCUSED)
+    ShopEvents:SetFlag(FLAG.STATE_CHANGED)
 
     return true
 end
@@ -1559,8 +1556,8 @@ end
 function ShopUI.Builder.BuildHorseStatInfoBoxScene(menu)
     ShopUI.Events.HandleHorseStatInfoBoxFocus(menu)
 
-    ShopEvents.SetEventFlag(ShopEvents.FLAG_FOCUSED)
-    ShopEvents.SetEventFlag(ShopEvents.FLAG_STATE_CHANGED)
+    ShopEvents:SetFlag(FLAG.FOCUSED)
+    ShopEvents:SetFlag(FLAG.STATE_CHANGED)
 
     return true
 end
@@ -1749,7 +1746,7 @@ function ShopUI.Builder.TryAddItemToSlot(index)
 
         if type ~= 0 then
             DatabindingInsertUiItemToListFromContextHashAlias(ShopUI.bindings.dsuItemList, index, type, entry)
-            VirtualCollectionItemAdd(ShopEvents.state.collectionId, index, type, entry)
+            VirtualCollectionItemAdd(ShopEvents.collectionId, index, type, entry)
             ShopUI.state.currentItemEntriesByIndex[index + 1] = entry
             ShopUI.state.currentItemIndecesById[item.Id] = index + 1
 
@@ -1863,11 +1860,9 @@ function ShopUI.Builder.FillBusinessItem(entry, item)
     DatabindingAddDataString(entry, "uiItemID", item.Id)
     DatabindingAddDataString(entry, "uiItemType", "BUSINESS")
     DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_BUSINESS_LIST_ITEM")
-    DatabindingAddDataHash(entry, "uiItemLabel", 0)
     DatabindingAddDataString(entry, "uiItemRawText", item.Label or "")
     DatabindingAddDataBool(entry, "itemEnabled", not ShopUI.IsItemDisabled(item))
 
-    DatabindingAddDataHash(entry, "itemDescription", 0)
     DatabindingAddDataString(entry, "itemDescriptionRaw", data.Description or "")
     DatabindingAddDataFloat(entry, "Progress", data.Progress or 1.0)
     DatabindingAddDataHash(entry, "textColor", data.TextColor or "COLOR_WHITE")
@@ -1885,11 +1880,9 @@ function ShopUI.Builder.FillCouponItem(entry, item)
     DatabindingAddDataString(entry, "uiItemID", item.Id)
     DatabindingAddDataString(entry, "uiItemType", "COUPON")
     DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_COUPON_LIST_ITEM")
-    DatabindingAddDataHash(entry, "uiItemLabel", 0)
     DatabindingAddDataString(entry, "uiItemRawText", item.Label or "")
     DatabindingAddDataBool(entry, "itemEnabled", not ShopUI.IsItemDisabled(item))
 
-    DatabindingAddDataHash(entry, "itemDescription", 0)
     DatabindingAddDataString(entry, "itemDescriptionRaw", data.Description or "")
     DatabindingAddDataBool(entry, "maxCount", data.IsMaxCount or false)
     DatabindingAddDataInt(entry, "not_script_data_int_3", data.Quantity or 0)
@@ -1908,11 +1901,9 @@ function ShopUI.Builder.FillHairItem(entry, item)
     DatabindingAddDataString(entry, "uiItemID", item.Id)
     DatabindingAddDataString(entry, "uiItemType", "HAIR")
     DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_HAIR_LIST_ITEM")
-    DatabindingAddDataHash(entry, "uiItemLabel", 0)
     DatabindingAddDataString(entry, "uiItemRawText", item.Label or "")
     DatabindingAddDataBool(entry, "itemEnabled", not ShopUI.IsItemDisabled(item))
 
-    DatabindingAddDataHash(entry, "itemDescription", 0)
     DatabindingAddDataString(entry, "itemDescriptionRaw", data.Description or "")
     DatabindingAddDataBool(entry, "maxCount", data.IsMaxCount or false)
     DatabindingAddDataInt(entry, "not_script_data_int_3", data.Quantity or 0)
@@ -1930,7 +1921,6 @@ function ShopUI.Builder.FillInventoryItem(entry, item)
     DatabindingAddDataString(entry, "uiItemID", item.Id)
     DatabindingAddDataString(entry, "uiItemType", "INVENTORY")
     DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_INVENTORY_LIST_ITEM")
-    DatabindingAddDataHash(entry, "uiItemLabel", 0)
     DatabindingAddDataString(entry, "uiItemRawText", item.Label or "")
     DatabindingAddDataBool(entry, "itemEnabled", not ShopUI.IsItemDisabled(item))
 
@@ -2000,7 +1990,6 @@ function ShopUI.Builder.FillStableItem(entry, item)
     DatabindingAddDataString(entry, "uiItemID", item.Id)
     DatabindingAddDataString(entry, "uiItemType", "STABLE")
     DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_STABLE_LIST_ITEM")
-    DatabindingAddDataHash(entry, "uiItemLabel", 0)
     DatabindingAddDataString(entry, "uiItemRawText", item.Label or "")
     DatabindingAddDataBool(entry, "itemEnabled", not ShopUI.IsItemDisabled(item))
 
@@ -2029,7 +2018,6 @@ function ShopUI.Builder.FillStepperItem(entry, item)
     DatabindingAddDataString(entry, "uiItemID", id)
     DatabindingAddDataString(entry, "uiItemType", "STEPPER")
     DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_STEPPER_LIST_ITEM")
-    DatabindingAddDataHash(entry, "uiItemLabel", 0)
     DatabindingAddDataString(entry, "uiItemRawText", item.Label or "")
     DatabindingAddDataBool(entry, "itemEnabled", not ShopUI.IsItemDisabled(item))
 
@@ -2044,17 +2032,15 @@ function ShopUI.Builder.FillStepperItem(entry, item)
     local value = data.StepperValue or 1
 
     for optionIndex, optionText in ipairs(options) do
-        local optionKey = string.format("NSUI_%s_%s", id, optionIndex)
-        if DoesTextLabelExist(optionKey) ~= 1 then
-            AddTextEntry(optionKey, optionText)
-        end
+        local optionKey = string.format("NSUI_STEPPER_%s_%s", id, optionIndex)
+        AddTextEntry(optionKey, optionText)
     end
 
     DatabindingAddDataInt(entry, "uiItemStepperMax", #options)
     DatabindingAddDataInt(entry, "uiItemStepperValue", value - 1)
     DatabindingAddDataBool(entry, "uiItemStepperVisible", data.StepperVisible or #options > 0)
     DatabindingAddDataBool(entry, "uiItemStepperEnabled", not ShopUI.IsItemDisabled(item))
-    DatabindingAddDataString(entry, "uiItemStepperText", string.format("NSUI_%s_%s", id, value))
+    DatabindingAddDataString(entry, "uiItemStepperText", string.format("NSUI_STEPPER_%s_%s", id, value))
     DatabindingAddDataBool(entry, "uiItemTextureStepperVisible", data.StepperTextureVisible or data.StepperTexture ~= nil)
     DatabindingAddDataHash(entry, "uiItemTextureStepperTexture", data.StepperTexture or 0)
     DatabindingAddDataHash(entry, "uiItemTextureStepperTextureDictionary", data.StepperTextureDict or 0)
@@ -2068,7 +2054,6 @@ function ShopUI.Builder.FillTextItem(entry, item)
     DatabindingAddDataString(entry, "uiItemID", item.Id)
     DatabindingAddDataString(entry, "uiItemType", "TEXT")
     DatabindingAddDataHash(entry, "uiItemGsui", "GSUI_TEXT_LIST_ITEM")
-    DatabindingAddDataHash(entry, "uiItemLabel", 0)
     DatabindingAddDataString(entry, "uiItemRawText", item.Label or "")
     DatabindingAddDataBool(entry, "itemEnabled", not ShopUI.IsItemDisabled(item))
 
@@ -2077,7 +2062,6 @@ function ShopUI.Builder.FillTextItem(entry, item)
     DatabindingAddDataBool(entry, "addIconVisible", data.AddIconVisible or data.AddIconTexture ~= nil)
     DatabindingAddDataBool(entry, "equipped", data.Equipped or false)
     DatabindingAddDataBool(entry, "onHorse", data.OnHorse or false)
-    DatabindingAddDataHash(entry, "rightlabel", 0)
     DatabindingAddDataString(entry, "rightRawText", data.RightText or "")
     DatabindingAddDataBool(entry, "rightLabelVisible", data.RightLabelVisible or data.RightText ~= nil)
     DatabindingAddDataBool(entry, "uiItemNew", data.IsNew or false)
@@ -2558,7 +2542,6 @@ function ShopUI.Scene.SetItemInfo1(visible, text, centered, iconVisible, iconTex
     local datastore = ShopUI.bindings.dscSceneItemInfo1
 
     DatabindingAddDataBool(datastore, "Visible", visible == true)
-    DatabindingAddDataHash(datastore, "Text", 0)
     DatabindingAddDataString(datastore, "RawText", text or "")
 
     if centered == false then
@@ -2673,8 +2656,6 @@ function ShopUI.Scene.SetItemInfo2(visible, text, centered, iconVisible, iconTex
     local datastore = ShopUI.bindings.dscSceneItemInfo2
 
     DatabindingAddDataBool(datastore, "Visible", visible == true)
-
-    DatabindingAddDataHash(datastore, "Text", 0)
     DatabindingAddDataString(datastore, "RawText", text or "")
 
     if centered == false then
@@ -2733,7 +2714,6 @@ function ShopUI.Scene.SetPriceDetails(visible, price, tokens, salePrice, gold, a
     DatabindingAddDataBool(datastore, "rightPriceTextVisible", hasRightText)
 
     if hasRightText then
-        DatabindingAddDataHash(datastore, "rightPriceText", 0)
         DatabindingAddDataString(datastore, "rightPriceRawText", rightText or "")
     end
 
@@ -2853,7 +2833,6 @@ function ShopUI.Scene.SetHorseInfoBox(visible, stats, text, description, tipText
     DatabindingAddDataBool(datastore, "showHorseStats", stats == true)
     DatabindingAddDataHash(datastore, "itemLabel", text or 0)
     DatabindingAddDataString(datastore, "itemDescription", description or "")
-    DatabindingAddDataHash(datastore, "itemTipText", 0)
     DatabindingAddDataString(datastore, "itemRawTipText", tipText or "")
 end
 
@@ -3296,7 +3275,7 @@ function ShopUI.Scene.SetPalette(id, value, items)
     local datastore = ShopUI.bindings.dscMain
     DatabindingAddDataInt(datastore, "currentPaletteIndex", value - 1)
     DatabindingAddDataInt(datastore, "paletteItemCount", #items)
-    DatabindingAddDataHash(datastore, "ItemPaletteItemName", string.format("NSUI_%s_%s", id, value))
+    DatabindingAddDataHash(datastore, "ItemPaletteItemName", string.format("NSUI_PALETTE_%s_%s", id, value))
 
     local scene = ShopUI.bindings.dscScene
     DatabindingAddDataBool(scene, "SliderLeftArrowEnabled", value > 1)
@@ -3306,10 +3285,8 @@ function ShopUI.Scene.SetPalette(id, value, items)
     ShopUI.CreatePaletteItemListBinding()
 
     for index, item in ipairs(items) do
-        local key = string.format("NSUI_%s_%s", id, index)
-        if DoesTextLabelExist(key) ~= 1 then
-            AddTextEntry(key, item.Text or "")
-        end
+        local key = string.format("NSUI_PALETTE_%s_%s", id, index)
+        AddTextEntry(key, item.Text or "")
 
         local entry = DatabindingAddDataContainer(ShopUI.bindings.dscPaletteItemListEntries, string.format("paletteEntry_%d", index))
         DatabindingAddDataBool(entry, "visible", item.Visible == true)
